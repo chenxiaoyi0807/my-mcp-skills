@@ -1,0 +1,23 @@
+{
+  "name": "axton-obsidian-visual-skills",
+  "owner": {
+    "name": "Axton Liu",
+    "email": "hey@axtonliu.com"
+  },
+  "metadata": {
+    "description": "Visual Skills Pack for Obsidian: generate Canvas, Excalidraw, and Mermaid from text",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "obsidian-visual-skills",
+      "description": "Generate Canvas, Excalidraw, and Mermaid diagrams in Obsidian",
+      "source": "./",
+      "skills": [
+        "./excalidraw-diagram",
+        "./mermaid-visualizer",
+        "./obsidian-canvas-creator"
+      ]
+    }
+  ]
+}
