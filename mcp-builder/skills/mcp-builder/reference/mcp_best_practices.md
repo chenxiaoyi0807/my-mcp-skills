@@ -1,249 +1,249 @@
-# MCP 服务器最佳实践
+# MCP Server Best Practices
 
-## 快速参考
+## Quick Reference
 
-### 服务器命名
-- **Python**：`{service}_mcp`（例如，`slack_mcp`）
-- **Node/TypeScript**：`{service}-mcp-server`（例如，`slack-mcp-server`）
+### Server Naming
+- **Python**: `{service}_mcp` (e.g., `slack_mcp`)
+- **Node/TypeScript**: `{service}-mcp-server` (e.g., `slack-mcp-server`)
 
-### 工具命名
-- 使用带有服务前缀的snake_case
-- 格式：`{服务}_{操作}_{资源}`
-- 示例：`slack_send_message`、`github_create_issue`
+### Tool Naming
+- Use snake_case with service prefix
+- Format: `{service}_{action}_{resource}`
+- Example: `slack_send_message`, `github_create_issue`
 
-### 响应格式
-- 支持 JSON 和 Markdown 格式
-- 用于编程处理的 JSON
-- Markdown 以提高人类可读性
+### Response Formats
+- Support both JSON and Markdown formats
+- JSON for programmatic processing
+- Markdown for human readability
 
-### 分页
-- 始终尊重“限制”参数
-- 返回 `has_more`、`next_offset`、`total_count`
-- 默认为 20-50 项
+### Pagination
+- Always respect `limit` parameter
+- Return `has_more`, `next_offset`, `total_count`
+- Default to 20-50 items
 
-### 交通
-- **Streamable HTTP**：适用于远程服务器、多客户端场景
-- **stdio**：用于本地集成、命令行工具
-- 避免 SSE（不推荐使用流式 HTTP）
-
----
-
-## 服务器命名约定
-
-遵循以下标准化命名模式：
-
-**Python**：使用格式`{service}_mcp`（小写带下划线）
-- 示例：`slack_mcp`、`github_mcp`、`jira_mcp`
-
-**Node/TypeScript**：使用格式 `{service}-mcp-server` （小写字母带连字符）
-- 示例：`slack-mcp-server`、`github-mcp-server`、`jira-mcp-server`
-
-名称应该是通用的，描述所集成的服务，易于从任务描述中推断出来，并且没有版本号。
+### Transport
+- **Streamable HTTP**: For remote servers, multi-client scenarios
+- **stdio**: For local integrations, command-line tools
+- Avoid SSE (deprecated in favor of streamable HTTP)
 
 ---
 
-## 工具命名和设计
+## Server Naming Conventions
 
-### 工具命名
+Follow these standardized naming patterns:
 
-1. **使用snake_case**：`search_users`、`create_project`、`get_channel_info`
-2. **包含服务前缀**：预计您的 MCP 服务器可能与其他 MCP 服务器一起使用
-   - 使用“slack_send_message”而不仅仅是“send_message”
-   - 使用“github_create_issue”而不仅仅是“create_issue”
-3. **以行动为导向**：从动词开始（获取、列表、搜索、创建等）
-4. **具体**：避免使用可能与其他服务器冲突的通用名称
+**Python**: Use format `{service}_mcp` (lowercase with underscores)
+- Examples: `slack_mcp`, `github_mcp`, `jira_mcp`
 
-### 工具设计
+**Node/TypeScript**: Use format `{service}-mcp-server` (lowercase with hyphens)
+- Examples: `slack-mcp-server`, `github-mcp-server`, `jira-mcp-server`
 
-- 工具描述必须狭隘且明确地描述功能
-- 描述必须与实际功能精确匹配
-- 提供工具注释（readOnlyHint、destroyerHint、idempotencyHint、openWorldHint）
-- 保持工具操作的重点和原子性
+The name should be general, descriptive of the service being integrated, easy to infer from the task description, and without version numbers.
 
 ---
 
-## 响应格式
+## Tool Naming and Design
 
-所有返回数据的工具都应该支持多种格式：
+### Tool Naming
 
-### JSON 格式 (`response_format="json"`)
-- 机器可读的结构化数据
-- 包括所有可用字段和元数据
-- 一致的字段名称和类型
-- 用于程序化处理
+1. **Use snake_case**: `search_users`, `create_project`, `get_channel_info`
+2. **Include service prefix**: Anticipate that your MCP server may be used alongside other MCP servers
+   - Use `slack_send_message` instead of just `send_message`
+   - Use `github_create_issue` instead of just `create_issue`
+3. **Be action-oriented**: Start with verbs (get, list, search, create, etc.)
+4. **Be specific**: Avoid generic names that could conflict with other servers
 
-### Markdown 格式（`response_format="markdown"`，通常是默认值）
-- 人类可读的格式化文本
-- 为了清晰起见，使用标题、列表和格式
-- 将时间戳转换为人类可读的格式
-- 显示带有括号中 ID 的显示名称
-- 省略详细的元数据
+### Tool Design
+
+- Tool descriptions must narrowly and unambiguously describe functionality
+- Descriptions must precisely match actual functionality
+- Provide tool annotations (readOnlyHint, destructiveHint, idempotentHint, openWorldHint)
+- Keep tool operations focused and atomic
 
 ---
 
-## 分页
+## Response Formats
 
-对于列出资源的工具：
+All tools that return data should support multiple formats:
 
-- **始终尊重“限制”参数**
-- **实现分页**：使用“offset”或基于光标的分页
-- **返回分页元数据**：包括 `has_more`、`next_offset`/`next_cursor`、`total_count`
-- **切勿将所有结果加载到内存中**：对于大型数据集尤其重要
-- **默认合理限制**：通常为 20-50 件
+### JSON Format (`response_format="json"`)
+- Machine-readable structured data
+- Include all available fields and metadata
+- Consistent field names and types
+- Use for programmatic processing
 
-分页响应示例：
+### Markdown Format (`response_format="markdown"`, typically default)
+- Human-readable formatted text
+- Use headers, lists, and formatting for clarity
+- Convert timestamps to human-readable format
+- Show display names with IDs in parentheses
+- Omit verbose metadata
+
+---
+
+## Pagination
+
+For tools that list resources:
+
+- **Always respect the `limit` parameter**
+- **Implement pagination**: Use `offset` or cursor-based pagination
+- **Return pagination metadata**: Include `has_more`, `next_offset`/`next_cursor`, `total_count`
+- **Never load all results into memory**: Especially important for large datasets
+- **Default to reasonable limits**: 20-50 items is typical
+
+Example pagination response:
 ```json
 {
-  “总计”：150，
-  “计数”：20，
-  “偏移量”：0，
-  “项目”：[...]，
-  “has_more”：正确，
-  “下一个偏移量”：20
+  "total": 150,
+  "count": 20,
+  "offset": 0,
+  "items": [...],
+  "has_more": true,
+  "next_offset": 20
 }
-````
+```
 
 ---
 
-## 交通选择
+## Transport Options
 
-### 流式 HTTP
+### Streamable HTTP
 
-**最适合**：远程服务器、Web 服务、多客户端场景
+**Best for**: Remote servers, web services, multi-client scenarios
 
-**特点**：
-- 通过 HTTP 进行双向通信
-- 支持多个并发客户端
-- 可以部署为网络服务
-- 启用服务器到客户端的通知
+**Characteristics**:
+- Bidirectional communication over HTTP
+- Supports multiple simultaneous clients
+- Can be deployed as a web service
+- Enables server-to-client notifications
 
-**使用时**：
-- 同时为多个客户提供服务
-- 部署为云服务
-- 与网络应用程序集成
+**Use when**:
+- Serving multiple clients simultaneously
+- Deploying as a cloud service
+- Integration with web applications
 
-### 标准输入输出
+### stdio
 
-**最适合**：本地集成、命令行工具
+**Best for**: Local integrations, command-line tools
 
-**特点**：
-- 标准输入/输出流通信
-- 设置简单，无需网络配置
-- 作为客户端的子进程运行
+**Characteristics**:
+- Standard input/output stream communication
+- Simple setup, no network configuration needed
+- Runs as a subprocess of the client
 
-**使用时**：
-- 为本地开发环境构建工具
-- 与桌面应用程序集成
-- 单用户、单会话场景
+**Use when**:
+- Building tools for local development environments
+- Integrating with desktop applications
+- Single-user, single-session scenarios
 
-**注意**：stdio 服务器不应记录到 stdout（使用 stderr 进行日志记录）
+**Note**: stdio servers should NOT log to stdout (use stderr for logging)
 
-### 交通选择
+### Transport Selection
 
-|标准|工作室|流式 HTTP |
-|----------|------|-----------------|
-| **部署** |本地|远程|
-| **客户** |单|多个|
-| **复杂性** |低|中等|
-| **实时** |没有 |是的 |
-
----
-
-## 安全最佳实践
-
-### 身份验证和授权
-
-**OAuth 2.1**：
-- 使用安全的 OAuth 2.1 和来自公认机构的证书
-- 在处理请求之前验证访问令牌
-- 只接受专门用于您的服务器的令牌
-
-**API 密钥**：
-- 将 API 密钥存储在环境变量中，而不是代码中
-- 在服务器启动时验证密钥
-- 身份验证失败时提供清晰的错误消息
-
-### 输入验证
-
-- 清理文件路径以防止目录遍历
-- 验证 URL 和外部标识符
-- 检查参数大小和范围
-- 防止系统调用中的命令注入
-- 对所有输入使用模式验证（Pydantic/Zod）
-
-### 错误处理
-
-- 不要向客户暴露内部错误
-- 在服务器端记录与安全相关的错误
-- 提供有用但不泄露错误消息
-- 错误后清理资源
-
-### DNS 重新绑定保护
-
-对于本地运行的流式 HTTP 服务器：
-- 启用 DNS 重新绑定保护
-- 验证所有传入连接上的“Origin”标头
-- 绑定到`127.0.0.1`而不是`0.0.0.0`
+| Criterion | stdio | Streamable HTTP |
+|-----------|-------|-----------------|
+| **Deployment** | Local | Remote |
+| **Clients** | Single | Multiple |
+| **Complexity** | Low | Medium |
+| **Real-time** | No | Yes |
 
 ---
 
-## 工具注释
+## Security Best Practices
 
-提供注释以帮助客户理解工具行为：
+### Authentication and Authorization
 
-|注释|类型 |默认 |描述 |
-|------------|------|---------|------------|
-| `只读提示` |布尔 |假 |工具不修改其环境|
-| `破坏性提示` |布尔 |真实 |工具可能会执行破坏性更新 |
-| `幂等提示` |布尔 |假 |使用相同参数重复调用没有额外效果 |
-| `openWorldHint` |布尔 |真实 |工具与外部实体交互 |
+**OAuth 2.1**:
+- Use secure OAuth 2.1 with certificates from recognized authorities
+- Validate access tokens before processing requests
+- Only accept tokens specifically intended for your server
 
-**重要**：注释是提示，而不是安全保证。客户不应仅根据注释做出安全关键决策。
+**API Keys**:
+- Store API keys in environment variables, never in code
+- Validate keys on server startup
+- Provide clear error messages when authentication fails
+
+### Input Validation
+
+- Sanitize file paths to prevent directory traversal
+- Validate URLs and external identifiers
+- Check parameter sizes and ranges
+- Prevent command injection in system calls
+- Use schema validation (Pydantic/Zod) for all inputs
+
+### Error Handling
+
+- Don't expose internal errors to clients
+- Log security-relevant errors server-side
+- Provide helpful but not revealing error messages
+- Clean up resources after errors
+
+### DNS Rebinding Protection
+
+For streamable HTTP servers running locally:
+- Enable DNS rebinding protection
+- Validate the `Origin` header on all incoming connections
+- Bind to `127.0.0.1` rather than `0.0.0.0`
 
 ---
 
-## 错误处理
+## Tool Annotations
 
-- 使用标准 JSON-RPC 错误代码
-- 报告结果对象内的工具错误（不是协议级错误）
-- 提供有用的、具体的错误消息以及建议的后续步骤
-- 不要暴露内部实现细节
-- 错误时正确清理资源
+Provide annotations to help clients understand tool behavior:
 
-错误处理示例：
-``打字稿
-尝试{
-  常量结果=执行操作（）；
-  返回 { 内容：[{ 类型：“文本”，文本：结果 }] };
-} 捕获（错误）{
-  返回{
-    错误：正确，
-    内容：[{
-      类型：“文本”，
-      文本：`错误：${error.message}。尝试使用 filter='active_only' 来减少结果。`
+| Annotation | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `readOnlyHint` | boolean | false | Tool does not modify its environment |
+| `destructiveHint` | boolean | true | Tool may perform destructive updates |
+| `idempotentHint` | boolean | false | Repeated calls with same args have no additional effect |
+| `openWorldHint` | boolean | true | Tool interacts with external entities |
+
+**Important**: Annotations are hints, not security guarantees. Clients should not make security-critical decisions based solely on annotations.
+
+---
+
+## Error Handling
+
+- Use standard JSON-RPC error codes
+- Report tool errors within result objects (not protocol-level errors)
+- Provide helpful, specific error messages with suggested next steps
+- Don't expose internal implementation details
+- Clean up resources properly on errors
+
+Example error handling:
+```typescript
+try {
+  const result = performOperation();
+  return { content: [{ type: "text", text: result }] };
+} catch (error) {
+  return {
+    isError: true,
+    content: [{
+      type: "text",
+      text: `Error: ${error.message}. Try using filter='active_only' to reduce results.`
     }]
   };
 }
-````
+```
 
 ---
 
-## 测试要求
+## Testing Requirements
 
-综合测试应涵盖：
+Comprehensive testing should cover:
 
-- **功能测试**：使用有效/无效输入验证正确执行
-- **集成测试**：测试与外部系统的交互
-- **安全测试**：验证身份验证、输入清理、速率限制
-- **性能测试**：检查负载、超时下的行为
-- **错误处理**：确保正确的错误报告和清理
+- **Functional testing**: Verify correct execution with valid/invalid inputs
+- **Integration testing**: Test interaction with external systems
+- **Security testing**: Validate auth, input sanitization, rate limiting
+- **Performance testing**: Check behavior under load, timeouts
+- **Error handling**: Ensure proper error reporting and cleanup
 
 ---
 
-## 文件要求
+## Documentation Requirements
 
-- 提供所有工具和功能的清晰文档
-- 包括工作示例（每个主要功能至少 3 个）
-- 记录安全注意事项
-- 指定所需的权限和访问级别
-- 记录速率限制和性能特征
+- Provide clear documentation of all tools and capabilities
+- Include working examples (at least 3 per major feature)
+- Document security considerations
+- Specify required permissions and access levels
+- Document rate limits and performance characteristics

@@ -7,5 +7,5 @@
 	ignorecase = true
 	sparseCheckout = true
 [remote "origin"]
-	url = https://github.com/axtonliu/axton-obsidian-visual-skills/tree/main
+	url = https://github.com/axtonliu/axton-obsidian-visual-skills
 	fetch = +refs/heads/*:refs/remotes/origin/*

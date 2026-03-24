@@ -1,373 +1,373 @@
-"""MCP 服务器评估线束
+"""MCP Server Evaluation Harness
 
-该脚本通过使用 Claude 对 MCP 服务器运行测试问题来评估它们。
-”“”
+This script evaluates MCP servers by running test questions against them using Claude.
+"""
 
-导入argparse
-导入异步
-导入 json
-进口重新
-导入系统
-导入时间
-导入回溯
-导入 xml.etree.ElementTree 作为 ET
-从 pathlib 导入路径
-从输入导入任何
+import argparse
+import asyncio
+import json
+import re
+import sys
+import time
+import traceback
+import xml.etree.ElementTree as ET
+from pathlib import Path
+from typing import Any
 
-从 anthropic 导入 Anthropic
+from anthropic import Anthropic
 
-从连接导入create_connection
+from connections import create_connection
 
-EVALUATION_PROMPT = """您是一名可以使用工具的人工智能助手。
+EVALUATION_PROMPT = """You are an AI assistant with access to tools.
 
-当接到任务时，您必须：
-1.使用可用的工具来完成任务
-2. 提供方法中每个步骤的摘要，包含在 <summary> 标签中
-3. 对所提供的工具提供反馈，包含在 <feedback> 标签中
-4. 提供您的最终响应，包含在 <response> 标签中
+When given a task, you MUST:
+1. Use the available tools to complete the task
+2. Provide summary of each step in your approach, wrapped in <summary> tags
+3. Provide feedback on the tools provided, wrapped in <feedback> tags
+4. Provide your final response, wrapped in <response> tags
 
-摘要要求：
-- 在您的 <summary> 标签中，您必须解释：
-  - 您完成任务所采取的步骤
-  - 您使用了哪些工具、使用顺序以及原因
-  - 您为每个工具提供的输入
-  - 您从每个工具收到的输出
-  - 关于您如何得出答复的摘要
+Summary Requirements:
+- In your <summary> tags, you must explain:
+  - The steps you took to complete the task
+  - Which tools you used, in what order, and why
+  - The inputs you provided to each tool
+  - The outputs you received from each tool
+  - A summary for how you arrived at the response
 
-反馈要求：
-- 在您的 <feedback> 标签中，提供有关工具的建设性反馈：
-  - 对工具名称的评论：它们是否清晰且具有描述性？
-  - 对输入参数的评论：它们是否有详细记录？必需参数与可选参数是否明确？
-  - 对描述进行评论：它们是否准确地描述了该工具的用途？
-  - 评论工具使用过程中遇到的错误：工具执行失败吗？该工具是否返回了太多令牌？
-  - 确定需要改进的具体领域并解释为什么它们会有所帮助
-  - 您的建议要具体且可操作
+Feedback Requirements:
+- In your <feedback> tags, provide constructive feedback on the tools:
+  - Comment on tool names: Are they clear and descriptive?
+  - Comment on input parameters: Are they well-documented? Are required vs optional parameters clear?
+  - Comment on descriptions: Do they accurately describe what the tool does?
+  - Comment on any errors encountered during tool usage: Did the tool fail to execute? Did the tool return too many tokens?
+  - Identify specific areas for improvement and explain WHY they would help
+  - Be specific and actionable in your suggestions
 
-响应要求：
-- 您的回答应该简洁并直接解决问题
-- 始终将您的最终回复包含在 <response> 标签中
-- 如果您无法解决任务，请返回<response>NOT_FOUND</response>
-- 对于数字回复，只需提供数字
-- 对于 ID，只需提供 ID
-- 对于名称或文本，请提供所需的确切文本
-- 你的回复应该放在最后"""
+Response Requirements:
+- Your response should be concise and directly address what was asked
+- Always wrap your final response in <response> tags
+- If you cannot solve the task return <response>NOT_FOUND</response>
+- For numeric responses, provide just the number
+- For IDs, provide just the ID
+- For names or text, provide the exact text requested
+- Your response should go last"""
 
 
 def parse_evaluation_file(file_path: Path) -> list[dict[str, Any]]:
-    """使用 qa_pair 元素解析 XML 评估文件。"""
-    尝试：
-        树 = ET.parse(文件路径)
-        根 = 树.getroot()
-        评价=[]
+    """Parse XML evaluation file with qa_pair elements."""
+    try:
+        tree = ET.parse(file_path)
+        root = tree.getroot()
+        evaluations = []
 
-        对于 root.findall(".//qa_pair") 中的 qa_pair：
-            Question_elem = qa_pair.find("问题")
-            answer_elem = qa_pair.find("答案")
+        for qa_pair in root.findall(".//qa_pair"):
+            question_elem = qa_pair.find("question")
+            answer_elem = qa_pair.find("answer")
 
-            如果 Question_elem 不是 None 并且answer_elem 不是 None：
-                评估.append({
-                    "问题": (question_elem.text 或 "").strip(),
-                    "answer": (answer_elem.text 或 "").strip(),
+            if question_elem is not None and answer_elem is not None:
+                evaluations.append({
+                    "question": (question_elem.text or "").strip(),
+                    "answer": (answer_elem.text or "").strip(),
                 })
 
-        返回评价
-    除了异常 e：
-        print(f"解析评估文件 {file_path} 时出错：{e}")
-        返回[]
+        return evaluations
+    except Exception as e:
+        print(f"Error parsing evaluation file {file_path}: {e}")
+        return []
 
 
-def extract_xml_content(文本：str，标签：str) -> str |无：
-    """从 XML 标签中提取内容。"""
-    模式 = rf"<{tag}>(.*?)</{tag}>"
-    匹配= re.findall（模式，文本，re.DOTALL）
-    如果匹配则返回 matches[-1].strip() 否则无
+def extract_xml_content(text: str, tag: str) -> str | None:
+    """Extract content from XML tags."""
+    pattern = rf"<{tag}>(.*?)</{tag}>"
+    matches = re.findall(pattern, text, re.DOTALL)
+    return matches[-1].strip() if matches else None
 
 
-异步 def agent_loop(
-    客户：人类，
-    型号：str，
-    问题：str，
-    工具：列表[dict[str, Any]]，
-    连接：任何，
-) -> 元组[str, dict[str, Any]]:
-    """使用 MCP 工具运行代理循环。"""
-    messages = [{“角色”：“用户”，“内容”：问题}]
+async def agent_loop(
+    client: Anthropic,
+    model: str,
+    question: str,
+    tools: list[dict[str, Any]],
+    connection: Any,
+) -> tuple[str, dict[str, Any]]:
+    """Run the agent loop with MCP tools."""
+    messages = [{"role": "user", "content": question}]
 
-    响应 = 等待 asyncio.to_thread(
-        客户端.消息.创建，
-        型号=型号，
-        最大令牌=4096，
-        系统=评估_提示，
-        消息=消息，
-        工具=工具，
-    ）
+    response = await asyncio.to_thread(
+        client.messages.create,
+        model=model,
+        max_tokens=4096,
+        system=EVALUATION_PROMPT,
+        messages=messages,
+        tools=tools,
+    )
 
-    messages.append({"角色": "助理", "内容": response.content})
+    messages.append({"role": "assistant", "content": response.content})
 
-    工具指标 = {}
+    tool_metrics = {}
 
-    而response.stop_reason ==“tool_use”：
+    while response.stop_reason == "tool_use":
         tool_use = next(block for block in response.content if block.type == "tool_use")
-        工具名称=工具使用名称
-        工具输入=工具使用.输入
+        tool_name = tool_use.name
+        tool_input = tool_use.input
 
         tool_start_ts = time.time()
-        尝试：
-            tool_result = 等待连接.call_tool(tool_name, tool_input)
+        try:
+            tool_result = await connection.call_tool(tool_name, tool_input)
             tool_response = json.dumps(tool_result) if isinstance(tool_result, (dict, list)) else str(tool_result)
-        除了异常 e：
-            tool_response = f"执行工具 {tool_name} 时出错: {str(e)}\n"
-            tool_response +=traceback.format_exc()
+        except Exception as e:
+            tool_response = f"Error executing tool {tool_name}: {str(e)}\n"
+            tool_response += traceback.format_exc()
         tool_duration = time.time() - tool_start_ts
 
-        如果 tool_name 不在 tool_metrics 中：
-            tool_metrics[工具名称] = {"count": 0, "durations": []}
-        tool_metrics[工具名称]["计数"] += 1
-        tool_metrics[工具名称][“持续时间”].append(tool_duration)
+        if tool_name not in tool_metrics:
+            tool_metrics[tool_name] = {"count": 0, "durations": []}
+        tool_metrics[tool_name]["count"] += 1
+        tool_metrics[tool_name]["durations"].append(tool_duration)
 
-        消息.append({
-            “角色”：“用户”，
-            “内容”：[{
-                “类型”：“工具结果”，
-                “tool_use_id”：tool_use.id，
-                “内容”：工具响应，
+        messages.append({
+            "role": "user",
+            "content": [{
+                "type": "tool_result",
+                "tool_use_id": tool_use.id,
+                "content": tool_response,
             }]
         })
 
-        响应 = 等待 asyncio.to_thread(
-            客户端.消息.创建，
-            型号=型号，
-            最大令牌=4096，
-            系统=评估_提示，
-            消息=消息，
-            工具=工具，
-        ）
-        messages.append({"角色": "助理", "内容": response.content})
+        response = await asyncio.to_thread(
+            client.messages.create,
+            model=model,
+            max_tokens=4096,
+            system=EVALUATION_PROMPT,
+            messages=messages,
+            tools=tools,
+        )
+        messages.append({"role": "assistant", "content": response.content})
 
-    响应文本 = 下一个（
+    response_text = next(
         (block.text for block in response.content if hasattr(block, "text")),
-        没有，
-    ）
-    返回响应文本、工具指标
+        None,
+    )
+    return response_text, tool_metrics
 
 
-异步 defvaluate_single_task(
-    客户：人类，
-    型号：str，
-    qa_pair: dict[str, 任意],
-    工具：列表[dict[str, Any]]，
-    连接：任何，
-    任务索引：int，
-) -> 字典[str, 任意]:
-    """使用给定的工具评估单个 QA 对。"""
-    开始时间 = 时间.time()
+async def evaluate_single_task(
+    client: Anthropic,
+    model: str,
+    qa_pair: dict[str, Any],
+    tools: list[dict[str, Any]],
+    connection: Any,
+    task_index: int,
+) -> dict[str, Any]:
+    """Evaluate a single QA pair with the given tools."""
+    start_time = time.time()
 
-    print(f"任务 {task_index + 1}: 运行带有问题的任务：{qa_pair['question']}")
-    响应，tool_metrics =等待agent_loop（客户端，模型，qa_pair [“问题”]，工具，连接）
+    print(f"Task {task_index + 1}: Running task with question: {qa_pair['question']}")
+    response, tool_metrics = await agent_loop(client, model, qa_pair["question"], tools, connection)
 
-    响应值= extract_xml_content（响应，“响应”）
-    摘要= extract_xml_content（响应，“摘要”）
-    反馈= extract_xml_content（响应，“反馈”）
+    response_value = extract_xml_content(response, "response")
+    summary = extract_xml_content(response, "summary")
+    feedback = extract_xml_content(response, "feedback")
 
-    持续时间_秒 = time.time() - 开始时间
+    duration_seconds = time.time() - start_time
 
-    返回{
-        “问题”：qa_pair[“问题”]，
-        “预期”：qa_pair[“答案”]，
-        “实际”：响应值，
+    return {
+        "question": qa_pair["question"],
+        "expected": qa_pair["answer"],
+        "actual": response_value,
         "score": int(response_value == qa_pair["answer"]) if response_value else 0,
-        “总持续时间”：持续时间秒，
-        “工具调用”：工具指标，
-        “num_tool_calls”：tool_metrics.values() 中的指标的 sum(len(metrics["durations"]))，
-        “摘要”：摘要，
-        “反馈”：反馈，
+        "total_duration": duration_seconds,
+        "tool_calls": tool_metrics,
+        "num_tool_calls": sum(len(metrics["durations"]) for metrics in tool_metrics.values()),
+        "summary": summary,
+        "feedback": feedback,
     }
 
 
 REPORT_HEADER = """
-# 评估报告
+# Evaluation Report
 
-## 总结
+## Summary
 
-- **准确度**：{正确}/{总计} ({准确度:.1f}%)
-- **平均任务持续时间**：{average_duration_s:.2f}s
-- **每个任务的平均工具调用**：{average_tool_calls:.2f}
-- **工具调用总数**：{total_tool_calls}
-
----
-”“”
-
-任务模板 = """
-### 任务 {task_num}
-
-**问题**：{问题}
-**基本事实答案**：`{expected_answer}`
-**实际答案**：`{actual_answer}`
-**正确**：{ Correct_indicator}
-**持续时间**：{total_duration:.2f}s
-**工具调用**：{tool_calls}
-
-**总结**
-{总结}
-
-**反馈**
-{反馈}
+- **Accuracy**: {correct}/{total} ({accuracy:.1f}%)
+- **Average Task Duration**: {average_duration_s:.2f}s
+- **Average Tool Calls per Task**: {average_tool_calls:.2f}
+- **Total Tool Calls**: {total_tool_calls}
 
 ---
-”“”
+"""
+
+TASK_TEMPLATE = """
+### Task {task_num}
+
+**Question**: {question}
+**Ground Truth Answer**: `{expected_answer}`
+**Actual Answer**: `{actual_answer}`
+**Correct**: {correct_indicator}
+**Duration**: {total_duration:.2f}s
+**Tool Calls**: {tool_calls}
+
+**Summary**
+{summary}
+
+**Feedback**
+{feedback}
+
+---
+"""
 
 
-异步 def run_evaluation(
-    eval_path：路径，
-    连接：任何，
-    型号：str =“claude-3-7-sonnet-20250219”，
-) -> 字符串:
-    """使用 MCP 服务器工具运行评估。"""
-    print("🚀 开始评估")
+async def run_evaluation(
+    eval_path: Path,
+    connection: Any,
+    model: str = "claude-3-7-sonnet-20250219",
+) -> str:
+    """Run evaluation with MCP server tools."""
+    print("🚀 Starting Evaluation")
 
-    客户端=人类（）
+    client = Anthropic()
 
-    工具=等待连接.list_tools()
-    print(f"📋 从 MCP 服务器加载了 {len(tools)} 工具")
+    tools = await connection.list_tools()
+    print(f"📋 Loaded {len(tools)} tools from MCP server")
 
     qa_pairs = parse_evaluation_file(eval_path)
-    print(f"📋 已加载 {len(qa_pairs)} 评估任务")
+    print(f"📋 Loaded {len(qa_pairs)} evaluation tasks")
 
-    结果=[]
-    对于 i，枚举中的 qa_pair（qa_pairs）：
-        print(f"处理任务{i + 1}/{len(qa_pairs)}")
-        结果=等待evaluate_single_task（客户端，模型，qa_pair，工具，连接，i）
-        结果.追加（结果）
+    results = []
+    for i, qa_pair in enumerate(qa_pairs):
+        print(f"Processing task {i + 1}/{len(qa_pairs)}")
+        result = await evaluate_single_task(client, model, qa_pair, tools, connection, i)
+        results.append(result)
 
-    正确 = sum(r["score"] for r in results)
-    准确度 = (正确 / len(结果)) * 100 如果结果为 0
+    correct = sum(r["score"] for r in results)
+    accuracy = (correct / len(results)) * 100 if results else 0
     average_duration_s = sum(r["total_duration"] for r in results) / len(results) if results else 0
     average_tool_calls = sum(r["num_tool_calls"] for r in results) / len(results) if results else 0
-    Total_tool_calls = sum(r["num_tool_calls"] for r in results)
+    total_tool_calls = sum(r["num_tool_calls"] for r in results)
 
-    报告 = REPORT_HEADER.format(
-        正确=正确，
-        总计=len(结果),
-        准确度=准确度，
-        平均持续时间=平均持续时间，
+    report = REPORT_HEADER.format(
+        correct=correct,
+        total=len(results),
+        accuracy=accuracy,
+        average_duration_s=average_duration_s,
         average_tool_calls=average_tool_calls,
-        Total_tool_calls=total_tool_calls,
-    ）
+        total_tool_calls=total_tool_calls,
+    )
 
-    报告 += "".join([
-        任务模板.format(
-            任务编号=i + 1,
-            问题=qa_pair["问题"],
-            Expected_answer=qa_pair["答案"],
-            实际答案=结果[“实际”]或“不适用”，
-            Correct_indicator="✅" if result["score"] else "❌",
-            总持续时间=结果[“总持续时间”],
-            tool_calls = json.dumps（结果[“tool_calls”]，缩进= 2），
-            摘要=结果[“摘要”] 或“不适用”，
-            反馈=结果[“反馈”]或“不适用”，
-        ）
-        对于 i，枚举（zip（qa_pairs，结果））中的（qa_pair，结果）
-    ]）
+    report += "".join([
+        TASK_TEMPLATE.format(
+            task_num=i + 1,
+            question=qa_pair["question"],
+            expected_answer=qa_pair["answer"],
+            actual_answer=result["actual"] or "N/A",
+            correct_indicator="✅" if result["score"] else "❌",
+            total_duration=result["total_duration"],
+            tool_calls=json.dumps(result["tool_calls"], indent=2),
+            summary=result["summary"] or "N/A",
+            feedback=result["feedback"] or "N/A",
+        )
+        for i, (qa_pair, result) in enumerate(zip(qa_pairs, results))
+    ])
 
-    返回报告
+    return report
 
 
 def parse_headers(header_list: list[str]) -> dict[str, str]:
-    """将格式为“Key: Value”的标头字符串解析到字典中。"""
-    标头 = {}
-    如果不是 header_list:
-        返回标头
+    """Parse header strings in format 'Key: Value' into a dictionary."""
+    headers = {}
+    if not header_list:
+        return headers
 
-    对于 header_list 中的标头：
-        如果标题中包含“：”：
-            键, 值 = header.split(":", 1)
+    for header in header_list:
+        if ":" in header:
+            key, value = header.split(":", 1)
             headers[key.strip()] = value.strip()
-        其他：
-            print(f"警告：忽略格式错误的标头：{header}")
-    返回标头
+        else:
+            print(f"Warning: Ignoring malformed header: {header}")
+    return headers
 
 
 def parse_env_vars(env_list: list[str]) -> dict[str, str]:
-    """将格式为 'KEY=VALUE' 的环境变量字符串解析到字典中。"""
-    环境 = {}
-    如果不是 env_list：
-        返回环境
+    """Parse environment variable strings in format 'KEY=VALUE' into a dictionary."""
+    env = {}
+    if not env_list:
+        return env
 
-    对于 env_list 中的 env_var：
-        如果 env_var 中为“=”：
-            键, 值 = env_var.split("=", 1)
+    for env_var in env_list:
+        if "=" in env_var:
+            key, value = env_var.split("=", 1)
             env[key.strip()] = value.strip()
-        其他：
-            print(f"警告：忽略格式错误的环境变量：{env_var}")
-    返回环境
+        else:
+            print(f"Warning: Ignoring malformed environment variable: {env_var}")
+    return env
 
 
-异步 def main():
-    解析器 = argparse.ArgumentParser(
-        description="使用测试问题评估 MCP 服务器",
+async def main():
+    parser = argparse.ArgumentParser(
+        description="Evaluate MCP servers using test questions",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        结语=“”
-示例：
-  # 评估本地 stdio MCP 服务器
-  python评价.py -t stdio -c python -a my_server.py eval.xml
+        epilog="""
+Examples:
+  # Evaluate a local stdio MCP server
+  python evaluation.py -t stdio -c python -a my_server.py eval.xml
 
-  # 评估 SSE MCP 服务器
-  python评价.py -t sse -u https://example.com/mcp -H“授权：不记名令牌”eval.xml
+  # Evaluate an SSE MCP server
+  python evaluation.py -t sse -u https://example.com/mcp -H "Authorization: Bearer token" eval.xml
 
-  # 使用自定义模型评估 HTTP MCP 服务器
-  python评价.py -t http -u https://example.com/mcp -m claude-3-5-sonnet-20241022 eval.xml
+  # Evaluate an HTTP MCP server with custom model
+  python evaluation.py -t http -u https://example.com/mcp -m claude-3-5-sonnet-20241022 eval.xml
         """,
-    ）
+    )
 
-    parser.add_argument("eval_file", type=Path, help="评估 XML 文件的路径")
-    parser.add_argument("-t", "--transport", Choices=["stdio", "sse", "http"], default="stdio", help="传输类型（默认：stdio）")
-    parser.add_argument("-m", "--model", default="claude-3-7-sonnet-20250219", help="要使用的 Claude 模型（默认值：claude-3-7-sonnet-20250219）")
+    parser.add_argument("eval_file", type=Path, help="Path to evaluation XML file")
+    parser.add_argument("-t", "--transport", choices=["stdio", "sse", "http"], default="stdio", help="Transport type (default: stdio)")
+    parser.add_argument("-m", "--model", default="claude-3-7-sonnet-20250219", help="Claude model to use (default: claude-3-7-sonnet-20250219)")
 
-    stdio_group = parser.add_argument_group("stdio 选项")
-    stdio_group.add_argument("-c", "--command", help="运行 MCP 服务器的命令（仅限 stdio）")
-    stdio_group.add_argument("-a", "--args", nargs="+", help="命令参数（仅限 stdio）")
-    stdio_group.add_argument("-e", "--env", nargs="+", help="KEY=VALUE 格式的环境变量（仅限 stdio）")
+    stdio_group = parser.add_argument_group("stdio options")
+    stdio_group.add_argument("-c", "--command", help="Command to run MCP server (stdio only)")
+    stdio_group.add_argument("-a", "--args", nargs="+", help="Arguments for the command (stdio only)")
+    stdio_group.add_argument("-e", "--env", nargs="+", help="Environment variables in KEY=VALUE format (stdio only)")
 
-    Remote_group = parser.add_argument_group("sse/http 选项")
-    remote_group.add_argument("-u", "--url", help="MCP 服务器 URL（仅限 sse/http）")
-    remote_group.add_argument("-H", "--header", nargs="+", dest="headers", help="'Key: Value' 格式的 HTTP 标头（仅限 sse/http）")
+    remote_group = parser.add_argument_group("sse/http options")
+    remote_group.add_argument("-u", "--url", help="MCP server URL (sse/http only)")
+    remote_group.add_argument("-H", "--header", nargs="+", dest="headers", help="HTTP headers in 'Key: Value' format (sse/http only)")
 
-    parser.add_argument("-o", "--output", type=Path, help="评估报告的输出文件（默认：stdout）")
+    parser.add_argument("-o", "--output", type=Path, help="Output file for evaluation report (default: stdout)")
 
     args = parser.parse_args()
 
-    如果不是 args.eval_file.exists()：
-        print(f"错误：未找到评估文件：{args.eval_file}")
-        系统退出(1)
+    if not args.eval_file.exists():
+        print(f"Error: Evaluation file not found: {args.eval_file}")
+        sys.exit(1)
 
-    headers = parse_headers(args.headers) 如果 args.headers else None
+    headers = parse_headers(args.headers) if args.headers else None
     env_vars = parse_env_vars(args.env) if args.env else None
 
-    尝试：
-        连接=创建连接（
-            运输=args.运输，
-            命令=args.命令，
+    try:
+        connection = create_connection(
+            transport=args.transport,
+            command=args.command,
             args=args.args,
-            环境=环境变量，
+            env=env_vars,
             url=args.url,
-            标题=标题，
-        ）
-    除了 ValueError 为 e：
-        打印（f“错误：{e}”）
-        系统退出(1)
+            headers=headers,
+        )
+    except ValueError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
 
-    print(f"🔗 正在通过 {args.transport} 连接到 MCP 服务器...")
+    print(f"🔗 Connecting to MCP server via {args.transport}...")
 
-    异步连接：
-        print("✅ 连接成功")
-        报告=等待run_evaluation（args.eval_file，连接，args.model）
+    async with connection:
+        print("✅ Connected successfully")
+        report = await run_evaluation(args.eval_file, connection, args.model)
 
-        如果args.输出：
-            args.output.write_text（报告）
-            print(f"\n✅ 报告已保存到 {args.output}")
-        其他：
-            打印（“\n”+报告）
+        if args.output:
+            args.output.write_text(report)
+            print(f"\n✅ Report saved to {args.output}")
+        else:
+            print("\n" + report)
 
 
-如果 __name__ == "__main__":
-    asyncio.run（主（））
+if __name__ == "__main__":
+    asyncio.run(main())
