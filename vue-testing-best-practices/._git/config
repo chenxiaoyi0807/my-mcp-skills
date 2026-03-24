@@ -1,0 +1,11 @@
+[core]
+	repositoryformatversion = 0
+	filemode = false
+	bare = false
+	logallrefupdates = true
+	symlinks = false
+	ignorecase = true
+	sparseCheckout = false
+[remote "origin"]
+	url = https://github.com/vuejs-ai/skills
+	fetch = +refs/heads/*:refs/remotes/origin/*

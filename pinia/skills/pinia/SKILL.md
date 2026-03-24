@@ -1,59 +1,59 @@
 ---
-name: pinia
-description: Pinia official Vue state management library, type-safe and extensible. Use when defining stores, working with state/getters/actions, or implementing store patterns in Vue apps.
-metadata:
-  author: Anthony Fu
-  version: "2026.1.28"
-  source: Generated from https://github.com/vuejs/pinia, scripts located at https://github.com/antfu/skills
+Name: Pinya
+Description: Pinia's official Vue state management library, type-safe and extensible. Use when defining storage, using state/getters/actions, or implementing storage patterns in your Vue application.
+Metadata:
+  Author: Anthony Fu
+  Version: "2026.1.28"
+  Source: Generated from https://github.com/vuejs/pinia, script at https://github.com/antfu/skills
 ---
 
-# Pinia
+#piña
 
-Pinia is the official state management library for Vue, designed to be intuitive and type-safe. It supports both Options API and Composition API styles, with first-class TypeScript support and devtools integration.
+Pinia is the official state management library for Vue, designed to be intuitive and type-safe. It supports options API and composition API styles, has best-in-class TypeScript support and development tool integration.
 
-> The skill is based on Pinia v3.0.4, generated at 2026-01-28.
+> This skill is based on Pinia v3.0.4, generated on 2026-01-28.
 
-## Core References
+## Core Reference
 
-| Topic | Description | Reference |
-|-------|-------------|-----------|
-| Stores | Defining stores, state, getters, actions, storeToRefs, subscriptions | [core-stores](references/core-stores.md) |
+|Topic |Description |Reference|
+|--------|-------------|------------|
+|Store |Define storage, state, getter, operation, storeToRefs, subscription | [Core Storage](Reference/Core Storage.md) |
 
 ## Features
 
-### Extensibility
+### Scalability
 
-| Topic | Description | Reference |
-|-------|-------------|-----------|
-| Plugins | Extend stores with custom properties, state, and behavior | [features-plugins](references/features-plugins.md) |
+|Topic |Description |Reference|
+|--------|-------------|------------|
+|Plugins |Extend storage with custom properties, state, and behavior | [Function Plugins](Reference/FunctionPlugins.md) |
 
 ### Composability
 
-| Topic | Description | Reference |
-|-------|-------------|-----------|
-| Composables | Using Vue composables within stores (VueUse, etc.) | [features-composables](references/features-composables.md) |
-| Composing Stores | Store-to-store communication, avoiding circular dependencies | [features-composing-stores](references/features-composing-stores.md) |
+|Topic |Description |Reference|
+|--------|-------------|------------|
+|Composables |Using Vue composables in your store (VueUse, etc.) | [features-composables](references/features-composables.md) |
+|Creation Store |Store-to-store communication to avoid circular dependencies | [Function Combination Store](Reference/Function Combination Store.md) |
 
 ## Best Practices
 
-| Topic | Description | Reference |
-|-------|-------------|-----------|
-| Testing | Unit testing with @pinia/testing, mocking, stubbing | [best-practices-testing](references/best-practices-testing.md) |
-| Outside Components | Using stores in navigation guards, plugins, middlewares | [best-practices-outside-component](references/best-practices-outside-component.md) |
+|Topic |Description |Reference|
+|--------|-------------|------------|
+|Testing|Use @pinia/testing, mocking, stubbing for unit testing | [Best Practice Testing](Reference/Best Practice Testing.md) |
+|External Components|Using Stores in Navigation Guards, Plugins, Middlewares | [Best Practice External Components](Reference/Best Practice External Components.md) |
 
 ## Advanced
 
-| Topic | Description | Reference |
-|-------|-------------|-----------|
-| SSR | Server-side rendering, state hydration | [advanced-ssr](references/advanced-ssr.md) |
-| Nuxt | Nuxt integration, auto-imports, SSR best practices | [advanced-nuxt](references/advanced-nuxt.md) |
-| HMR | Hot module replacement for development | [advanced-hmr](references/advanced-hmr.md) |
+|Topic |Description |Reference|
+|--------|-------------|------------|
+|Solid State Relay|Server rendering, state hydration| [advanced-ssr](Reference/advanced-ssr.md) |
+|Nuxt | Nuxt integration, automatic import, SSR best practices | [Advanced-nuxt](Reference/Advanced-nuxt.md) |
+| HMR | Development Hot Module Replacement | [Advanced-hmr] (Reference/Advanced-hmr.md) |
 
-## Key Recommendations
+## Main recommendations
 
-- **Prefer Setup Stores** for complex logic, composables, and watchers
-- **Use `storeToRefs()`** when destructuring state/getters to preserve reactivity
-- **Actions can be destructured directly** - they're bound to the store
-- **Call stores inside functions** not at module scope, especially for SSR
-- **Add HMR support** to each store for better development experience
-- **Use `@pinia/testing`** for component tests with mocked stores
+- **For complex logic, composables and observers, preferred settings storage**
+- **Use `storeToRefs()`** when destructuring state/getters to maintain reactivity
+- **Operations can be deconstructed directly** - they are bound to stores
+- **Calls stored inside functions** are not module scoped, especially for SSR
+- **Add HMR support** to each store for a better development experience
+- **Use `@pinia/testing`** for component testing of the mock store
