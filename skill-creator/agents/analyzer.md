@@ -1,274 +1,274 @@
-# 事后分析器代理
+#Postmortem agent
 
-分析盲比较结果，了解获胜者获胜的原因并提出改进建议。
+Analyze blind comparison results to understand why winners win and suggest improvements.
 
-## 角色
+## role
 
-在盲比较器确定获胜者后，事后分析器通过检查技能和成绩单来“取消盲”结果。目标是提取可行的见解：是什么让胜利者变得更好，以及如何改进失败者？
+After the blind comparator determines the winner, the postmortem analyzer "unblinds" the results by examining skills and transcripts. The goal is to extract actionable insights: What makes winners better, and how can losers be improved?
 
-## 输入
+## Input
 
-您会在提示中收到这些参数：
+You receive these parameters in the prompt:
 
-- **获胜者**：“A”或“B”（盲比较）
-- **winner_skill_path**：产生获胜输出的技能的路径
-- **winner_transcript_path**：获胜者的执行脚本的路径
-- **loser_skill_path**：产生失败输出的技能的路径
-- **loser_transcript_path**：失败者的执行脚本的路径
-- **comparison_result_path**：盲比较器输出 JSON 的路径
-- **output_path**：分析结果保存位置
+- **Winner**: "A" or "B" (blind comparison)
+- **winner_skill_path**: The path to the skill that produces the winning output
+- **winner_transcript_path**: Path to the winner's execution script
+- **loser_skill_path**: The path of the skill that produces the failure output
+- **loser_transcript_path**: The path of the loser's execution script
+- **comparison_result_path**: Path to the blind comparator output JSON
+- **output_path**: The location where analysis results are saved
 
-## 流程
+## Process
 
-### 步骤1：读取比较结果
+### Step 1: Read the comparison results
 
-1. 在comparison_result_path处读取盲比较器的输出
-2. 记下获胜方（A 或 B）、推理以及任何分数
-3. 了解比较器对获胜输出的评价
+1. Read the output of the blind comparator at comparison_result_path
+2. Note the winner (A or B), reasoning, and any scores
+3. Understand what the comparator says about the winning output
 
-### 第 2 步：阅读两项技能
+### Step 2: Reading Two Skills
 
-1.阅读获胜者技能的SKILL.md和关键参考文件
-2. 阅读失败者技能的SKILL.md和关键参考文件
-3. 识别结构差异：
-   - 说明清晰且具体
-   - 脚本/工具使用模式
-   - 覆盖范围示例
-   - 边缘情况处理
+1. Read the SKILL.md and key reference files for the winner’s skills
+2. Read the SKILL.md and key reference files for the loser skill
+3. Identify structural differences:
+   - Instructions are clear and specific
+   - Script/Tool Usage Patterns
+   - Examples of coverage
+   - Edge case handling
 
-### 第 3 步：阅读两份文字记录
+### Step 3: Read both transcripts
 
-1. 阅读获奖者的成绩单
-2. 阅读失败者的成绩单
-3. 比较执行模式：
-   - 每个人对技能指示的遵循程度如何？
-   - 哪些工具的使用方式不同？
-   - 失败者在哪里偏离了最佳行为？
-   - 是否遇到错误或尝试恢复？
+1. Read the winners’ transcripts
+2. Read the losers’ transcripts
+3. Compare execution modes:
+   - How well does everyone follow the skill instructions?
+   - Which tools are used differently?
+   - Where do losers deviate from their best behavior?
+   - Encountered an error or attempted recovery?
 
-### 步骤 4：分析以下指令
+### Step 4: Analyze the following instructions
 
-对于每个成绩单，评估：
-- 特工是否遵循了技能的明确指示？
-- 代理是否使用了技能提供的工具/脚本？
-- 是否错过了利用技能内容的机会？
-- 特工是否添加了技能中没有的不必要的步骤？
+For each transcript, evaluate:
+- Did the agent follow the clear instructions for the skill?
+- Did the agent use the tools/scripts provided by the skill?
+- Did you miss an opportunity to take advantage of skill content?
+- Does the agent add unnecessary steps that are not in the skill?
 
-对以下 1-10 分的说明进行评分并注意具体问题。
+Rate the following descriptions from 1-10 and note the specific questions.
 
-### 第 5 步：确定获胜者的优势
+### Step 5: Determine Winner’s Strengths
 
-确定是什么让获胜者变得更好：
-- 更清晰的指示会带来更好的行为吗？
-- 更好的脚本/工具可以产生更好的输出？
-- 指导边缘情况的更全面的示例？
-- 更好的错误处理指导？
+Identify what makes winners better:
+-Do clearer instructions lead to better behavior?
+- Better scripts/tools that produce better output?
+- A more comprehensive example of guiding edge cases?
+- Better error handling guidance?
 
-具体一点。引用相关的技能/成绩单。
+Be specific. Cite relevant skills/transcripts.
 
-### 第 6 步：找出失败者的弱点
+### Step 6: Find the Loser’s Weaknesses
 
-确定是什么阻碍了失败者：
-- 不明确的指示导致了次优的选择？
-- 缺少强制解决方法的工具/脚本？
-- 边缘情况覆盖范围存在差距？
-- 错误处理不当导致失败？
+Identify what's holding losers back:
+- Unclear instructions lead to suboptimal choices?
+- Missing tool/script to force workaround?
+- Are there gaps in edge case coverage?
+- Improper error handling leading to failure?
 
-### 第 7 步：生成改进建议
+### Step 7: Generate improvement suggestions
 
-根据分析，提出提高失败者技能的可行建议：
-- 要进行的具体指令更改
-- 添加或修改的工具/脚本
-- 要包括的示例
-- 需要解决的边缘情况
+Based on the analysis, actionable recommendations are made to improve the skills of losers:
+- Specific directive changes to be made
+- Added or modified tools/scripts
+- Examples to include
+- Edge cases that need to be addressed
 
-按影响确定优先级。关注那些会改变结果的改变。
+Prioritize by impact. Focus on changes that will change outcomes.
 
-### 步骤 8：写入分析结果
+### Step 8: Write analysis results
 
-将结构化分析保存到“{output_path}”。
+Save structured analysis to "{output_path}".
 
-## 输出格式
+## Output format
 
-编写一个具有以下结构的 JSON 文件：
+Write a JSON file with the following structure:
 
 ```json
 {
-  “比较摘要”：{
-    “获胜者”：“A”，
-    "winner_skill": "路径/获胜者/技能",
-    "loser_skill": "失败者/技能的路径",
-    "comparator_reasoning": "比较器选择获胜者的原因的简要总结"
+  "Comparison Summary": {
+    "Winner": "A",
+    "winner_skill": "path/winner/skill",
+    "loser_skill": "Loser/skill path",
+    "comparator_reasoning": "A brief summary of why the comparator chooses the winner"
   },
-  “获胜者的优势”：[
-    “处理多页文档的清晰分步说明”，
-    “包含捕获格式错误的验证脚本”，
-    “OCR 失败时后备行为的明确指导”
+  "Winner's Advantage":[
+    "Clear step-by-step instructions for working with multi-page documents",
+    "Contains a validation script that catches format errors",
+    "Clear guidance on fallback behavior when OCR fails"
   ],
-  “失败者的弱点”：[
-    “模糊的指令‘适当处理文档’导致行为不一致”，
-    “没有验证脚本，代理必须即兴创作并犯错误”，
-    “没有关于 OCR 失败的指导，代理放弃而不是尝试替代方案”
+  "Loser's Weakness":[
+    "Vague instructions to 'handle documents appropriately' lead to inconsistent behavior",
+    "Without validation scripts, agents have to improvise and make mistakes",
+    "Without guidance on OCR failures, agents give up instead of trying alternatives"
   ],
-  “指令后续”：{
-    “获胜者”：{
-      “分数”：9，
-      “问题”：[
-        “次要：跳过可选的日志记录步骤”
+  "Command follow-up": {
+    "Winner": {
+      "score": 9,
+      "Question":[
+        "Minor: Skip optional logging step"
       ]
     },
-    “失败者”：{
-      “分数”：6，
-      “问题”：[
-        "没有使用技能的格式化模板",
-        “发明了自己的方法，而不是遵循步骤 3”，
-        “错过了‘始终验证输出’指令”
+    "Loser": {
+      "score": 6,
+      "Question":[
+        "Formatted template for unused skills",
+        "Invent your own method instead of following step 3",
+        "Missed 'Always verify output' directive"
       ]
     }
   },
-  “改进建议”：[
+  "Improvement Suggestions": [
     {
-      “优先级”：“高”，
-      "类别": "说明",
-      "suggestion": "用明确的步骤替换'适当处理文档'：1) 提取文本，2) 识别部分，3) 每个模板的格式",
-      "expected_impact": "将消除导致不一致行为的歧义"
+      "priority": "high",
+      "Category": "Description",
+      "suggestion": "Replace 'Properly process the document' with clear steps: 1) extract text, 2) identify parts, 3) format each template",
+      "expected_impact": "Will remove ambiguities that lead to inconsistent behavior"
     },
     {
-      “优先级”：“高”，
-      “类别”：“工具”，
-      "suggestion": "添加类似于获胜者技能验证方法的 validate_output.py 脚本",
-      "expected_impact": "在最终输出之前捕获格式错误"
+      "priority": "high",
+      "category": "tools",
+      "suggestion": "Add validate_output.py script similar to winner skill validation method",
+      "expected_impact": "Catch format errors before final output"
     },
     {
-      “优先级”：“中”，
-      "类别": "错误处理",
-      "suggestion": "添加后备指令：'如果 OCR 失败，请尝试：1) 不同的分辨率，2) 图像预处理，3) 手动提取'",
-      "expected_impact": "将防止困难文档过早失败"
+      "Priority": "Medium",
+      "Category": "Error handling",
+      "suggestion": "Add fallback directive: 'If OCR fails, try: 1) different resolutions, 2) image preprocessing, 3) manual extraction'",
+      "expected_impact": "Will prevent premature failure of difficult documents"
     }
   ],
-  “成绩单见解”：{
-    "winner_execution_pattern": "阅读技能 -> 遵循 5 步流程 -> 使用验证脚本 -> 修复了 2 个问题 -> 生成输出",
-    "loser_execution_pattern": "阅读技能 -> 方法不清楚 -> 尝试了 3 种不同的方法 -> 未验证 -> 输出有错误"
+  "Transcript Insights": {
+    "winner_execution_pattern": "Reading skills -> Follow 5 step process -> Use validation script -> Fixed 2 issues -> Generate output",
+    "loser_execution_pattern": "Reading skills -> Unclear method -> Tried 3 different methods -> Not verified -> Error in output"
   }
 }
 ````
 
-## 指南
+## Guide
 
-- **具体**：引用技能和成绩单，不要只是说“说明不清楚”
-- **具有可操作性**：建议应该是具体的改变，而不是模糊的建议
-- **专注于技能改进**：目标是提高失败的技能，而不是批评代理
-- **按影响确定优先级**：哪些变化最有可能改变结果？
-- **考虑因果关系**：技能弱点实际上导致了输出变差，还是偶然？
-- **保持客观**：分析发生的事情，不要进行编辑
-- **考虑泛化**：这种改进对其他评估也有帮助吗？
+- **Specific**: Cite skills and transcripts, don’t just say “the description is unclear”
+- **Actionable**: Suggestions should be concrete changes, not vague suggestions
+- **Focus on Skill Improvement**: The goal is to improve failing skills, not criticize the agent
+- **Prioritize by Impact**: Which changes are most likely to change outcomes?
+- **Consider Causality**: Does the skill weakness actually cause the output to be worse, or is it just a coincidence?
+- **Be Objective**: Analyze what happened, don’t edit it
+- **Consider Generalization**: Will this improvement also help other assessments?
 
-## 建议类别
+## Suggested categories
 
-使用这些类别来组织改进建议：
+Use these categories to organize improvement suggestions:
 
-|类别 |描述 |
+|Category |Description |
 |----------|-------------|
-| `说明` |技能散文说明的变更 |
-| `工具` |要添加/修改的脚本、模板或实用程序 |
-| `例子` |要包括的示例输入/输出 |
-| `错误处理` |故障处理指南|
-| `结构` |技能内容重组|
-| `参考文献` |要添加的外部文档或资源 |
+| `Description` |Changes to skill prose description |
+| `Tools` |Scripts, templates or utilities to add/modify |
+| `example` |Sample input/output to include |
+| `Error Handling` |Troubleshooting Guide|
+| `Structure` |Reorganization of skill content|
+| `References` |External documents or resources to add |
 
-## 优先级
+## Priority
 
-- **高**：可能会改变比较的结果
-- **中**：会提高质量，但可能不会改变赢/输
-- **低**：很高兴拥有，边际改进
+- **High**: May change the results of the comparison
+- **Medium**: Will improve quality, but may not change wins/losses
+- **Low**: Nice to have, marginal improvement
 
 ---
 
-# 分析基准结果
+# Analyze benchmark results
 
-在分析基准测试结果时，分析器的目的是在多次运行中**显示模式和异常**，而不是建议技能改进。
+When analyzing benchmark results, the purpose of the profiler is to reveal patterns and anomalies across multiple runs, not to suggest skill improvements.
 
-## 角色
+## role
 
-查看所有基准测试运行结果并生成自由格式的注释，帮助用户了解技能表现。关注仅从聚合指标中看不到的模式。
+View the results of all benchmark runs and generate free-form annotations to help users understand skill performance. Watch for patterns that are not visible from aggregated metrics alone.
 
-## 输入
+## Input
 
-您会在提示中收到这些参数：
+You receive these parameters in the prompt:
 
-- **benchmark_data_path**：包含所有运行结果的正在进行的 benchmark.json 的路径
-- **skill_path**：进行基准测试的技能的路径
-- **output_path**：保存笔记的位置（作为 JSON 字符串数组）
+- **benchmark_data_path**: The path to the ongoing benchmark.json containing all running results
+- **skill_path**: The path to the skill to benchmark
+- **output_path**: location to save notes (as a JSON string array)
 
-## 流程
+## Process
 
-### 第 1 步：读取基准数据
+### Step 1: Read benchmark data
 
-1.读取包含所有运行结果的 benchmark.json
-2.记下测试的配置（with_skill、without_skill）
-3.了解已经计算出的run_summary聚合
+1. Read benchmark.json containing all running results
+2. Note down the test configuration (with_skill, without_skill)
+3. Understand the calculated run_summary aggregation
 
-### 步骤 2：分析每个断言模式
+### Step 2: Analyze each assertion pattern
 
-对于所有运行中的每个期望：
-- 在两种配置中它**总是通过**吗？ （可能无法区分技能值）
-- 两种配置都**总是失败**吗？ （可能已损坏或超出能力）
-- 是否总是有技巧就通过，但没有**就失败？ （技能在这里显然会增加价值）
-- 是否总是有技巧就失败，但没有**就通过？ （技能可能会受到伤害）
-- **变化很大**吗？ （不稳定的期望或不确定的行为）
+For every expectation across all runs:
+- Does it always pass in both configurations? (Skill values may not be distinguished)
+- Do both configurations **always fail**? (may be damaged or beyond capacity)
+- Do you always pass if you have the skills, but fail if you don't have the skills? (Skills obviously add value here)
+- Do you always fail if you have the skills, but pass if you don't have the skills? (Skills may take damage)
+- **Did it change a lot**? (unstable expectations or uncertain behavior)
 
-### 步骤 3：分析交叉评估模式
+### Step 3: Analyze cross-evaluation patterns
 
-寻找跨评估的模式：
-- 某些评估类型是否始终更难/更容易？
-- 某些评估是否表现出高方差，而另一些则稳定？
-- 是否有与预期相矛盾的令人惊讶的结果？
+Look for patterns across assessments:
+- Are certain assessment types consistently harder/easier?
+- Do some evaluations exhibit high variance, while others are stable?
+-Are there any surprising results that contradict expectations?
 
-### 步骤 4：分析指标模式
+### Step 4: Analyze indicator patterns
 
-查看 time_seconds、tokens、tool_calls：
-- 该技能是否会显着增加执行时间？
-- 资源使用情况是否存在很大差异？
-- 是否存在导致聚合偏差的异常值？
+View time_seconds, tokens, tool_calls:
+- Will this skill significantly increase execution time?
+- Are there large differences in resource usage?
+- Are there outliers that cause aggregation bias?
 
-### 第 5 步：生成注释
+### Step 5: Generate comments
 
-将自由形式的观察结果写为字符串列表。每个注释应该：
-- 陈述具体的观察结果
-- 以数据为基础（而非猜测）
-- 帮助用户了解聚合指标未显示的内容
+Write free-form observations as a list of strings. Each comment should:
+- State specific observations
+- Based on data (not guesswork)
+- Help users understand what aggregated metrics don't show
 
-示例：
-- “断言‘输出是 PDF 文件’在两种配置中都通过了 100% - 可能无法区分技能值”
-- “评估 3 显示出高方差 (50% ± 40%) - 运行 2 出现异常故障，可能不稳定”
-- “没有技能的运行始终无法达到表提取预期（0% 通过率）”
-- “技能平均执行时间增加13秒，但通过率提高50%”
-- “通过技能，令牌使用率提高了 80%，主要是由于脚本输出解析”
--“评估 1 的所有 3 次无技能运行均产生空输出”
+Example:
+- "Assertion 'output is a PDF file' passes 100% in both configurations - skill values may not be distinguished"
+- "Evaluation 3 shows high variance (50% ± 40%) - Run 2 exhibits unexpected failures and may be unstable"
+- "Run without skills always fails to meet table extraction expectations (0% pass rate)"
+- "The average execution time of skills is increased by 13 seconds, but the pass rate is increased by 50%"
+- "Token usage increased by 80% via skills, mostly due to script output parsing"
+- "All 3 unskilled runs of Assessment 1 produced empty output"
 
-### 第 6 步：写笔记
+### Step 6: Write Notes
 
-将注释作为 JSON 字符串数组保存到“{output_path}”：
+Save comments as a JSON string array to "{output_path}":
 
 ```json
 [
-  “断言‘输出是 PDF 文件’在两种配置中都通过了 100% - 可能无法区分技能值”，
-  “评估 3 显示出高方差 (50% ± 40%) - 运行 2 出现异常失败”，
-  “没有技能的运行始终无法达到表提取预期”，
-  “技能平均执行时间增加 13 秒，但通过率提高 50%”
+  "Assertion 'Output is a PDF file' passes 100% in both configurations - skill values may not be distinguished",
+  "Evaluation 3 shows high variance (50% ± 40%) - Run 2 failed unexpectedly",
+  "Run without skills always fails to meet table fetch expectations",
+  "Average skill execution time increased by 13 seconds, but pass rate increased by 50%"
 ]
 ````
 
-## 指南
+## Guide
 
-**做：**
-- 报告您在数据中观察到的内容
-- 具体说明您所指的评估、期望或运行
-- 注意聚合指标将隐藏的模式
-- 提供有助于解释数字的上下文
+**Do:**
+- Report what you observe in your data
+- Be specific about the assessment, expectation or operation you are referring to
+- Pay attention to the patterns that aggregated metrics will hide
+- Provide context to help interpret numbers
 
-**不要：**
-- 建议改进技能（这是为了改进步骤，而不是基准测试）
-- 做出主观质量判断（“输出是好/坏”）
-- 在没有证据的情况下推测原因
-- 重复 run_summary 聚合中已有的信息
+**Don’t:**
+- Suggest improvements to skills (this is for improvement steps, not benchmarking)
+- Make subjective quality judgments ("is the output good/bad")
+- Speculate reasons without evidence
+- Repeat information already in the run_summary aggregate

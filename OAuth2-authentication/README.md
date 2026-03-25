@@ -1,273 +1,273 @@
-# OAuth2 Authentication Skill
+# OAuth2认证技巧
 
-A comprehensive skill for implementing secure authentication and authorization using OAuth2 and OpenID Connect protocols. This skill provides complete guidance for building modern authentication systems across web, mobile, and API applications.
+使用 OAuth2 和 OpenID Connect 协议实现安全身份验证和授权的综合技能。该技能为跨 Web、移动和 API 应用程序构建现代身份验证系统提供了完整的指导。
 
-## Overview
+## 概述
 
-OAuth2 is the industry-standard authorization framework that enables applications to obtain limited access to user accounts on HTTP services. Combined with OpenID Connect (OIDC), it provides both authentication and authorization capabilities for modern applications.
+OAuth2 是行业标准授权框架，使应用程序能够获得对 HTTP 服务上的用户帐户的有限访问权限。与 OpenID Connect (OIDC) 相结合，它为现代应用程序提供身份验证和授权功能。
 
-This skill covers everything from basic concepts to advanced implementation patterns, security best practices, and real-world examples.
+这项技能涵盖了从基本概念到高级实施模式、安全最佳实践和现实示例的所有内容。
 
-## What You'll Learn
+## 你将学到什么
 
-- **Authorization Flows**: Authorization Code, PKCE, Client Credentials, Device Flow
-- **Token Management**: Access tokens, refresh tokens, ID tokens, storage, and rotation
-- **Security**: PKCE implementation, state parameters, token validation, secure storage
-- **OpenID Connect**: Identity layer, ID tokens, UserInfo endpoint, claims
-- **Implementation**: Server-side, SPA, mobile apps, OAuth2 server development
-- **Best Practices**: Security patterns, performance optimization, common pitfalls
-- **Real-World Examples**: Social login, API authentication, multi-tenancy, SSO
+- **授权流程**：授权代码、PKCE、客户端凭据、设备流程
+- **令牌管理**：访问令牌、刷新令牌、ID 令牌、存储和轮换
+- **安全性**：PKCE 实现、状态参数、令牌验证、安全存储
+- **OpenID Connect**：身份层、ID 令牌、UserInfo 端点、声明
+- **实施**：服务器端、SPA、移动应用程序、OAuth2 服务器开发
+- **最佳实践**：安全模式、性能优化、常见陷阱
+- **真实示例**：社交登录、API 身份验证、多租户、SSO
 
-## Quick Start Guide
+## 快速入门指南
 
-### Choosing the Right OAuth2 Flow
+### 选择正确的 OAuth2 流程
 
-**Authorization Code Flow (with PKCE)**
-- ✅ Single Page Applications (React, Vue, Angular)
-- ✅ Mobile applications (iOS, Android, React Native)
-- ✅ Desktop applications
-- ✅ Any public client that cannot store secrets
+**授权代码流程（使用 PKCE）**
+- ✅ 单页应用程序（React、Vue、Angular）
+- ✅ 移动应用程序（iOS、Android、React Native）
+- ✅ 桌面应用程序
+- ✅ 任何无法存储秘密的公共客户端
 
-**Authorization Code Flow (without PKCE)**
-- ✅ Traditional server-side web applications
-- ✅ Applications with secure backend
-- ✅ Can securely store client secrets
+**授权代码流程（无 PKCE）**
+- ✅ 传统的服务器端 Web 应用程序
+- ✅ 具有安全后端的应用程序
+- ✅ 可以安全地存储客户机密
 
-**Client Credentials Flow**
-- ✅ Backend service-to-service authentication
-- ✅ Microservices communication
-- ✅ Cron jobs and scheduled tasks
-- ✅ CI/CD pipelines
-- ❌ No user context (machine-to-machine only)
+**客户端凭证流程**
+- ✅ 后端服务到服务的身份验证
+- ✅ 微服务通信
+- ✅ Cron 作业和计划任务
+- ✅ CI/CD 管道
+- ❌ 无用户上下文（仅限机器对机器）
 
-**Device Authorization Flow**
-- ✅ Smart TVs and streaming devices
-- ✅ IoT devices without keyboards
-- ✅ CLI tools and terminal applications
-- ✅ Gaming consoles
+**设备授权流程**
+- ✅ 智能电视和流媒体设备
+- ✅ 没有键盘的物联网设备
+- ✅ CLI 工具和终端应用程序
+- ✅ 游戏机
 
-**Avoid These Deprecated Flows:**
-- ❌ Implicit Flow (use Authorization Code + PKCE instead)
-- ❌ Resource Owner Password Credentials (security risk)
+**避免这些已弃用的流程：**
+- ❌ 隐式流程（使用授权码 + PKCE 代替）
+- ❌ 资源所有者密码凭证（安全风险）
 
-### Basic Implementation Examples
+### 基本实现示例
 
-#### 1. Server-Side Web Application (Node.js + Express)
+#### 1. 服务器端 Web 应用程序（Node.js + Express）
 
 ```javascript
-// Simple OAuth2 login implementation
+// 简单的OAuth2登录实现
 const express = require('express');
 const session = require('express-session');
 const crypto = require('crypto');
 
-const app = express();
+常量应用程序 = Express();
 
-// OAuth2 Configuration
-const config = {
-  clientId: process.env.OAUTH2_CLIENT_ID,
-  clientSecret: process.env.OAUTH2_CLIENT_SECRET,
-  authorizationUrl: 'https://auth.example.com/oauth/authorize',
+// OAuth2 配置
+常量配置= {
+  clientId：process.env.OAUTH2_CLIENT_ID，
+  clientSecret：process.env.OAUTH2_CLIENT_SECRET，
+  授权网址：'https://auth.example.com/oauth/authorize'，
   tokenUrl: 'https://auth.example.com/oauth/token',
   redirectUri: 'https://yourapp.com/auth/callback',
-  scopes: ['openid', 'profile', 'email'],
+  范围：['openid', '个人资料', '电子邮件'],
 };
 
-// Session configuration
-app.use(session({
-  secret: process.env.SESSION_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: true, // HTTPS only
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+// 会话配置
+应用程序.use(会话({
+  秘密：process.env.SESSION_SECRET，
+  重新保存：假，
+  保存未初始化：假，
+  饼干：{
+    secure: true, // 仅 HTTPS
+    httpOnly：正确，
+    maxAge: 24 * 60 * 60 * 1000, // 24小时
   },
 }));
 
-// Login route - redirects to authorization server
+// 登录路由 - 重定向到授权服务器
 app.get('/login', (req, res) => {
   const state = crypto.randomBytes(32).toString('hex');
-  req.session.oauth2State = state;
+  req.session.oauth2State = 状态；
 
-  const authUrl = new URL(config.authorizationUrl);
+  const authUrl = 新 URL(config.authorizationUrl);
   authUrl.searchParams.set('client_id', config.clientId);
   authUrl.searchParams.set('redirect_uri', config.redirectUri);
   authUrl.searchParams.set('response_type', 'code');
   authUrl.searchParams.set('scope', config.scopes.join(' '));
-  authUrl.searchParams.set('state', state);
+  authUrl.searchParams.set('状态', 状态);
 
   res.redirect(authUrl.toString());
 });
 
-// Callback route - handles authorization code
+// 回调路由 - 处理授权码
 app.get('/auth/callback', async (req, res) => {
-  const { code, state } = req.query;
+  const { 代码，状态 } = req.query;
 
-  // Validate state parameter (CSRF protection)
+  // 验证状态参数（CSRF保护）
   if (state !== req.session.oauth2State) {
-    return res.status(403).send('Invalid state parameter');
+    return res.status(403).send('状态参数无效');
   }
 
-  try {
-    // Exchange authorization code for tokens
-    const response = await fetch(config.tokenUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+  尝试{
+    // 用授权码换取token
+    const 响应 = 等待 fetch(config.tokenUrl, {
+      方法：'POST'，
+      标题：{
+        '内容类型': 'application/x-www-form-urlencoded',
       },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        code,
+      正文：新的 URLSearchParams({
+        grant_type: '授权码',
+        代码，
         redirect_uri: config.redirectUri,
         client_id: config.clientId,
-        client_secret: config.clientSecret,
+        client_secret：config.clientSecret，
       }),
     });
 
-    const tokens = await response.json();
+    const tokens =等待response.json();
 
-    // Store tokens in session
+    // 将令牌存储在会话中
     req.session.accessToken = tokens.access_token;
     req.session.refreshToken = tokens.refresh_token;
 
-    res.redirect('/dashboard');
-  } catch (error) {
-    console.error('Authentication failed:', error);
-    res.status(500).send('Authentication failed');
+    res.redirect('/仪表板');
+  } 捕获（错误）{
+    console.error('身份验证失败：', error);
+    res.status(500).send('认证失败');
   }
 });
 
-// Protected route
+// 受保护的路由
 app.get('/dashboard', (req, res) => {
   if (!req.session.accessToken) {
     return res.redirect('/login');
   }
 
-  res.send('Welcome to your dashboard!');
+  res.send('欢迎来到您的仪表板！');
 });
 
-app.listen(3000);
-```
+应用程序.听(3000);
+````
 
-#### 2. Single Page Application with PKCE (React)
+#### 2. 使用 PKCE 的单页应用程序 (React)
 
 ```javascript
-// OAuth2 with PKCE for React applications
-import { createContext, useContext, useState, useEffect } from 'react';
+// 用于 React 应用程序的带有 PKCE 的 OAuth2
+从 'react' 导入 { createContext, useContext, useState, useEffect };
 
 const AuthContext = createContext();
 
-export function useAuth() {
-  return useContext(AuthContext);
+导出函数 useAuth() {
+  返回 useContext(AuthContext);
 }
 
-// PKCE helper functions
-function generateRandomString(length) {
+// PKCE 辅助函数
+函数生成随机字符串（长度）{
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
-  const values = crypto.getRandomValues(new Uint8Array(length));
+  const 值 = crypto.getRandomValues(new Uint8Array(length));
   return Array.from(values).map(v => chars[v % chars.length]).join('');
 }
 
-async function generateCodeChallenge(verifier) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(verifier);
-  const hash = await crypto.subtle.digest('SHA-256', data);
-  return base64UrlEncode(hash);
+异步函数generateCodeChallenge（验证程序）{
+  const 编码器 = new TextEncoder();
+  const data = 编码器.encode(验证器);
+  const hash = wait crypto.subtle.digest('SHA-256', data);
+  返回base64UrlEncode（哈希）；
 }
 
-function base64UrlEncode(buffer) {
-  const bytes = new Uint8Array(buffer);
+函数base64UrlEncode（缓冲区）{
+  const 字节 = new Uint8Array(buffer);
   const binary = String.fromCharCode(...bytes);
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
-export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+导出函数 AuthProvider({ 孩子 }) {
+  const [用户，setUser] = useState(null);
   const [accessToken, setAccessToken] = useState(null);
 
-  async function login() {
-    // Generate PKCE parameters
-    const codeVerifier = generateRandomString(64);
-    const codeChallenge = await generateCodeChallenge(codeVerifier);
-    const state = generateRandomString(32);
+  异步函数登录() {
+    // 生成PKCE参数
+    const codeVerifier =generateRandomString(64);
+    const codeChallenge =等待generateCodeChallenge(codeVerifier);
+    常量状态=generateRandomString(32);
 
-    // Store for callback
+    // 存储回调
     sessionStorage.setItem('code_verifier', codeVerifier);
-    sessionStorage.setItem('oauth2_state', state);
+    sessionStorage.setItem('oauth2_state', 状态);
 
-    // Build authorization URL
+    // 构建授权URL
     const params = new URLSearchParams({
       client_id: 'your_client_id',
       redirect_uri: window.location.origin + '/callback',
-      response_type: 'code',
-      scope: 'openid profile email',
-      state,
-      code_challenge: codeChallenge,
+      响应类型：'代码'，
+      范围：'openid 个人资料电子邮件'，
+      状态，
+      code_challenge：代码挑战，
       code_challenge_method: 'S256',
     });
 
-    // Redirect to authorization server
+    // 重定向到授权服务器
     window.location.href = `https://auth.example.com/oauth/authorize?${params}`;
   }
 
-  async function handleCallback(code, state) {
-    // Validate state
-    const savedState = sessionStorage.getItem('oauth2_state');
-    if (state !== savedState) {
-      throw new Error('Invalid state parameter');
+  异步函数handleCallback（代码，状态）{
+    // 验证状态
+    const saveState = sessionStorage.getItem('oauth2_state');
+    if (状态!==保存状态) {
+      throw new Error('无效的状态参数');
     }
 
-    // Get code verifier
+    // 获取验证码
     const codeVerifier = sessionStorage.getItem('code_verifier');
 
-    // Exchange code for tokens
-    const response = await fetch('https://auth.example.com/oauth/token', {
-      method: 'POST',
+    // 兑换代币代码
+    const 响应 = 等待 fetch('https://auth.example.com/oauth/token', {
+      方法：'POST'，
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        code,
+      正文：新的 URLSearchParams({
+        grant_type: '授权码',
+        代码，
         redirect_uri: window.location.origin + '/callback',
         client_id: 'your_client_id',
-        code_verifier: codeVerifier,
+        code_verifier：代码验证器，
       }),
     });
 
-    const tokens = await response.json();
+    const tokens =等待response.json();
     setAccessToken(tokens.access_token);
 
-    // Fetch user info
-    const userResponse = await fetch('https://auth.example.com/oauth/userinfo', {
-      headers: { Authorization: `Bearer ${tokens.access_token}` },
+    // 获取用户信息
+    const userResponse = 等待 fetch('https://auth.example.com/oauth/userinfo', {
+      headers: { 授权: `Bearer ${tokens.access_token}` },
     });
-    const userInfo = await userResponse.json();
-    setUser(userInfo);
+    const userInfo = 等待 userResponse.json();
+    setUser(用户信息);
 
-    // Clean up
+    // 清理
     sessionStorage.removeItem('code_verifier');
     sessionStorage.removeItem('oauth2_state');
   }
 
-  function logout() {
-    setUser(null);
-    setAccessToken(null);
+  函数注销（）{
+    setUser(空);
+    setAccessToken(空);
     sessionStorage.clear();
   }
 
-  return (
-    <AuthContext.Provider value={{ user, accessToken, login, logout, handleCallback }}>
-      {children}
+  返回（
+    <AuthContext.Provider value={{ 用户、accessToken、登录、注销、handleCallback }}>
+      {孩子}
     </AuthContext.Provider>
-  );
+  ）；
 }
-```
+````
 
-#### 3. Client Credentials Flow (Backend Services)
+#### 3. 客户端凭证流程（后端服务）
 
 ```javascript
-// Machine-to-machine authentication
-class OAuth2ServiceClient {
-  constructor(clientId, clientSecret, tokenUrl) {
+// 机器对机器的认证
+类 OAuth2ServiceClient {
+  构造函数（clientId，clientSecret，tokenUrl）{
     this.clientId = clientId;
     this.clientSecret = clientSecret;
     this.tokenUrl = tokenUrl;
@@ -275,549 +275,549 @@ class OAuth2ServiceClient {
     this.tokenExpiry = null;
   }
 
-  async getAccessToken() {
-    // Return cached token if still valid
+  异步 getAccessToken() {
+    // 如果仍然有效，则返回缓存的令牌
     if (this.accessToken && Date.now() < this.tokenExpiry - 60000) {
-      return this.accessToken;
+      返回 this.accessToken;
     }
 
-    // Request new token
-    const response = await fetch(this.tokenUrl, {
-      method: 'POST',
+    // 请求新的令牌
+    const 响应 = 等待 fetch(this.tokenUrl, {
+      方法：'POST'，
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
+      正文：新的 URLSearchParams({
         grant_type: 'client_credentials',
         client_id: this.clientId,
         client_secret: this.clientSecret,
-        scope: 'read:data write:data',
+        范围：'读：数据写：数据'，
       }),
     });
 
-    const data = await response.json();
+    const data =等待response.json();
 
-    // Cache token
+    // 缓存令牌
     this.accessToken = data.access_token;
     this.tokenExpiry = Date.now() + (data.expires_in * 1000);
 
-    return this.accessToken;
+    返回 this.accessToken;
   }
 
-  async callApi(url, options = {}) {
-    const token = await this.getAccessToken();
+  异步 callApi(url, 选项 = {}) {
+    const token =等待this.getAccessToken();
 
-    return fetch(url, {
-      ...options,
-      headers: {
-        ...options.headers,
-        Authorization: `Bearer ${token}`,
+    返回获取（网址，{
+      ...选项，
+      标题：{
+        ...选项.标题，
+        授权：`不记名${token}`，
       },
     });
   }
 }
 
-// Usage
-const client = new OAuth2ServiceClient(
-  process.env.CLIENT_ID,
-  process.env.CLIENT_SECRET,
+// 用法
+常量客户端 = 新 OAuth2ServiceClient(
+  process.env.CLIENT_ID，
+  process.env.CLIENT_SECRET，
   'https://auth.example.com/oauth/token'
-);
+）；
 
-// Make authenticated API calls
-const response = await client.callApi('https://api.example.com/data');
-const data = await response.json();
-```
+// 进行经过身份验证的 API 调用
+const response = wait client.callApi('https://api.example.com/data');
+const data =等待response.json();
+````
 
-## Key Concepts
+## 关键概念
 
-### OAuth2 Roles
+### OAuth2 角色
 
-1. **Resource Owner**: The user who owns the data
-2. **Client**: Your application requesting access
-3. **Authorization Server**: Issues access tokens after authenticating the user
-4. **Resource Server**: Hosts the protected resources (your API)
+1. **资源所有者**：拥有数据的用户
+2. **客户端**：您请求访问的应用程序
+3. **授权服务器**：验证用户身份后颁发访问令牌
+4. **资源服务器**：托管受保护的资源（您的API）
 
-### Token Types
+### 代币类型
 
-**Access Token**
-- Short-lived credential (15-60 minutes)
-- Used to access protected resources
-- Can be opaque or JWT format
-- Sent in `Authorization: Bearer <token>` header
+**访问令牌**
+- 短期凭证（15-60 分钟）
+- 用于访问受保护的资源
+- 可以是不透明或 JWT 格式
+- 在“授权：承载 <令牌>”标头中发送
 
-**Refresh Token**
-- Long-lived credential (days to months)
-- Used to obtain new access tokens
-- Must be stored securely
-- Single-use with token rotation (recommended)
+**刷新令牌**
+- 长期凭证（几天到几个月）
+- 用于获取新的访问令牌
+- 必须安全存放
+- 一次性使用且令牌轮换（推荐）
 
-**ID Token (OpenID Connect)**
-- Contains user identity information
-- Always JWT format
-- Used for authentication (not authorization)
-- Includes standard claims: sub, name, email, etc.
+**ID 令牌（OpenID Connect）**
+- 包含用户身份信息
+- 始终为 JWT 格式
+- 用于身份验证（不是授权）
+- 包括标准声明：子名称、姓名、电子邮件等。
 
-### Security Parameters
+### 安全参数
 
-**State Parameter**
-- Prevents CSRF attacks
-- Random value included in authorization request
-- Validated in callback
-- Required for security
+**状态参数**
+- 防止CSRF攻击
+- 授权请求中包含随机值
+- 在回调中验证
+- 安全所需
 
-**PKCE (Code Verifier & Challenge)**
-- Prevents authorization code interception
-- Required for public clients (SPAs, mobile apps)
-- Code verifier: Random string (43-128 chars)
-- Code challenge: SHA256 hash of verifier
-- Validated during token exchange
+**PKCE（代码验证器和挑战）**
+- 防止授权码拦截
+- 公共客户（SPA、移动应用程序）需要
+- 代码验证器：随机字符串（43-128 个字符）
+- 代码挑战：验证者的 SHA256 哈希值
+- 在代币交换期间进行验证
 
-### Scopes
+### 范围
 
-Scopes define the permissions being requested:
+范围定义所请求的权限：
 
-```
-openid              - Request OIDC ID token
-profile             - User profile information
-email               - User email address
-read:data           - Read access to data
-write:data          - Write access to data
-admin:users         - Admin access to users
-```
+````
+openid - 请求 OIDC ID 令牌
+个人资料 - 用户个人资料信息
+电子邮件 - 用户电子邮件地址
+read:data - 对数据的读取访问
+write:data - 对数据的写访问
+admin:users - 用户的管理员访问权限
+````
 
-## Token Storage Best Practices
+## 令牌存储最佳实践
 
-### Web Applications (Server-Side)
+### Web 应用程序（服务器端）
 
-✅ **Recommended:**
-- Store tokens in server-side session
-- Use secure session cookies (httpOnly, secure, sameSite)
-- Encrypt tokens at rest
-- Implement session timeout
+✅ **推荐：**
+- 在服务器端会话中存储令牌
+- 使用安全会话cookie（httpOnly、secure、sameSite）
+- 静态加密令牌
+- 实施会话超时
 
-❌ **Avoid:**
-- Storing tokens in localStorage
-- Exposing tokens to client-side JavaScript
-- Including tokens in URLs
+❌ **避免：**
+- 在 localStorage 中存储令牌
+- 将令牌暴露给客户端 JavaScript
+- 在 URL 中包含令牌
 
-### Single Page Applications (SPAs)
+### 单页应用程序 (SPA)
 
-✅ **Recommended:**
-- Access tokens in memory only (React state, Vuex, Redux)
-- Refresh tokens in httpOnly cookies via BFF (Backend for Frontend)
-- Token Handler pattern for enhanced security
-- Silent authentication for token refresh
+✅ **推荐：**
+- 仅访问内存中的令牌（React state、Vuex、Redux）
+- 通过 BFF（后端前端）刷新 httpOnly cookie 中的令牌
+- 用于增强安全性的令牌处理程序模式
+- 令牌刷新的静默身份验证
 
-❌ **Avoid:**
-- localStorage (vulnerable to XSS)
-- sessionStorage (also vulnerable to XSS)
-- Storing refresh tokens in browser
+❌ **避免：**
+- localStorage（易受 XSS 攻击）
+- sessionStorage（也容易受到 XSS 攻击）
+- 在浏览器中存储刷新令牌
 
-### Mobile Applications
+### 移动应用程序
 
-✅ **Recommended:**
-- Use platform secure storage:
-  - iOS: Keychain Services
-  - Android: EncryptedSharedPreferences or Android Keystore
-- Implement biometric authentication
-- Use refresh tokens for long-lived sessions
+✅ **推荐：**
+- 使用平台安全存储：
+  - iOS：钥匙串服务
+  - Android：EncryptedSharedPreferences 或 Android 密钥库
+- 实施生物特征认证
+- 对长期会话使用刷新令牌
 
-❌ **Avoid:**
-- Storing tokens in SharedPreferences (Android)
-- Storing tokens in UserDefaults (iOS)
-- Plaintext storage
+❌ **避免：**
+- 在 SharedPreferences 中存储令牌 (Android)
+- 在 UserDefaults 中存储令牌 (iOS)
+- 明文存储
 
-## Common Use Cases
+## 常见用例
 
-### 1. Social Login Integration
+### 1. 社交登录集成
 
-Implement "Sign in with Google/GitHub/Facebook":
+实现“使用 Google/GitHub/Facebook 登录”：
 
 ```javascript
-// Google OAuth2 configuration
-const googleConfig = {
+// 谷歌 OAuth2 配置
+常量 googleConfig = {
   clientId: 'your_google_client_id',
   clientSecret: 'your_google_client_secret',
-  authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+  授权网址：'https://accounts.google.com/o/oauth2/v2/auth'，
   tokenUrl: 'https://oauth2.googleapis.com/token',
-  scopes: ['openid', 'profile', 'email'],
+  范围：['openid', '个人资料', '电子邮件'],
 };
 
-// GitHub OAuth2 configuration
-const githubConfig = {
+// GitHub OAuth2 配置
+常量 githubConfig = {
   clientId: 'your_github_client_id',
   clientSecret: 'your_github_client_secret',
-  authorizationUrl: 'https://github.com/login/oauth/authorize',
+  授权网址：'https://github.com/login/oauth/authorize',
   tokenUrl: 'https://github.com/login/oauth/access_token',
-  scopes: ['read:user', 'user:email'],
+  范围：['读取：用户'，'用户：电子邮件']，
 };
-```
+````
 
-### 2. API Authentication
+### 2.API认证
 
-Protect your APIs with OAuth2 tokens:
+使用 OAuth2 令牌保护您的 API：
 
 ```javascript
-// Validate access token middleware
-async function validateAccessToken(req, res, next) {
+// 验证访问令牌中间件
+异步函数 validateAccessToken(req, res, next) {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Missing or invalid authorization header' });
+    return res.status(401).json({ error: '缺少或无效的授权标头' });
   }
 
-  const token = authHeader.substring(7);
+  const 令牌 = authHeader.substring(7);
 
-  try {
-    // Validate JWT token
-    const payload = jwt.verify(token, publicKey, {
-      algorithms: ['RS256'],
-      issuer: 'https://auth.example.com',
-      audience: 'https://api.example.com',
+  尝试{
+    // 验证 JWT 令牌
+    const 有效负载 = jwt.verify(token, publicKey, {
+      算法：['RS256']，
+      发行者：'https://auth.example.com'，
+      受众：'https://api.example.com'，
     });
 
-    // Check required scopes
+    // 检查所需的范围
     if (!payload.scope || !payload.scope.includes('read:data')) {
-      return res.status(403).json({ error: 'Insufficient permissions' });
+      return res.status(403).json({ error: '权限不足' });
     }
 
-    req.user = payload;
-    next();
-  } catch (error) {
-    return res.status(401).json({ error: 'Invalid or expired token' });
+    请求用户=负载；
+    下一个（）;
+  } 捕获（错误）{
+    return res.status(401).json({ error: '无效或过期的令牌' });
   }
 }
 
-// Protected API endpoint
+// 受保护的API端点
 app.get('/api/data', validateAccessToken, (req, res) => {
-  res.json({ message: 'Protected data', userId: req.user.sub });
+  res.json({ message: '受保护的数据', userId: req.user.sub });
 });
-```
+````
 
-### 3. Multi-Tenant Authentication
+### 3. 多租户身份验证
 
-Support organization-based authentication:
+支持基于组织的身份验证：
 
 ```javascript
-// Organization-scoped token request
+// 组织范围的令牌请求
 const params = new URLSearchParams({
   client_id: 'your_client_id',
   redirect_uri: 'https://yourapp.com/callback',
-  response_type: 'code',
-  scope: 'openid profile email organization:acme-corp',
-  state: state,
+  响应类型：'代码'，
+  范围：'openid 个人资料电子邮件组织：acme-corp'，
+  状态：状态，
 });
 
-// API validates organization access
-function validateOrganization(req, res, next) {
+// API 验证组织访问权限
+函数 validateOrganization(req, res, next) {
   const orgId = req.params.orgId;
   const tokenOrgId = req.user.org_id;
 
   if (orgId !== tokenOrgId) {
-    return res.status(403).json({ error: 'Access denied to organization' });
+    return res.status(403).json({ error: '组织访问被拒绝' });
   }
 
-  next();
+  下一个（）;
 }
-```
+````
 
-## Security Checklist
+## 安全检查表
 
-✅ **Essential Security Measures:**
+✅ **基本安全措施：**
 
-- [ ] Use HTTPS for all OAuth2 endpoints
-- [ ] Implement PKCE for public clients (SPAs, mobile)
-- [ ] Always validate state parameter (CSRF protection)
-- [ ] Strictly validate redirect URIs (exact match)
-- [ ] Use short-lived access tokens (15-60 minutes)
-- [ ] Implement refresh token rotation
-- [ ] Validate all JWT tokens (signature, exp, iss, aud)
-- [ ] Never store tokens in localStorage
-- [ ] Use secure token storage (httpOnly cookies, Keychain)
-- [ ] Implement token revocation
-- [ ] Use scope-based access control
-- [ ] Log authentication events
-- [ ] Monitor for suspicious activity
-- [ ] Implement rate limiting on auth endpoints
-- [ ] Use strong client secrets (64+ random characters)
+- [ ] 对所有 OAuth2 端点使用 HTTPS
+- [ ] 为公共客户（SPA、移动）实施 PKCE
+- [ ] 始终验证状态参数（CSRF 保护）
+- [ ] 严格验证重定向 URI（完全匹配）
+- [ ] 使用短期访问令牌（15-60 分钟）
+- [ ] 实施刷新令牌轮换
+- [ ] 验证所有 JWT 令牌（签名、exp、iss、aud）
+- [ ] 切勿将令牌存储在 localStorage 中
+- [ ] 使用安全令牌存储（httpOnly cookie、钥匙串）
+- [ ] 实施令牌撤销
+- [ ] 使用基于范围的访问控制
+- [ ] 记录身份验证事件
+- [ ] 监控可疑活动
+- [ ] 对身份验证端点实施速率限制
+- [ ] 使用强大的客户端机密（64+ 随机字符）
 
-❌ **Security Anti-Patterns to Avoid:**
+❌ **要避免的安全反模式：**
 
-- [ ] Using Implicit Flow (deprecated)
-- [ ] Storing tokens in localStorage
-- [ ] Using weak or predictable state values
-- [ ] Allowing wildcard redirect URIs
-- [ ] Long-lived access tokens (hours/days)
-- [ ] Ignoring token expiration
-- [ ] Not validating JWT signatures
-- [ ] Using HS256 with shared secrets for JWTs
-- [ ] Including tokens in URLs or logs
-- [ ] Not implementing PKCE for public clients
-- [ ] Using Resource Owner Password Credentials flow
-- [ ] Exposing client secrets in client-side code
+- [ ] 使用隐式流（已弃用）
+- [ ] 在 localStorage 中存储令牌
+- [ ] 使用弱或可预测的状态值
+- [ ] 允许通配符重定向 URI
+- [ ] 长期访问令牌（小时/天）
+- [ ] 忽略令牌过期
+- [ ] 不验证 JWT 签名
+- [ ] 使用 HS256 与 JWT 的共享密钥
+- [ ] 在 URL 或日志中包含令牌
+- [ ] 不为公共客户端实施 PKCE
+- [ ] 使用资源所有者密码凭证流程
+- [ ] 在客户端代码中公开客户端机密
 
-## Troubleshooting Common Issues
+## 常见问题故障排除
 
-### Issue: "Invalid redirect_uri"
+### 问题：“redirect_uri 无效”
 
-**Cause:** Redirect URI doesn't match registered URI exactly
+**原因：** 重定向 URI 与注册的 URI 不完全匹配
 
-**Solution:**
+**解决方案：**
 ```javascript
-// Ensure exact match including:
-// - Protocol (http vs https)
-// - Host (domain.com vs www.domain.com)
-// - Port (if specified)
-// - Path (if specified)
+// 确保精确匹配，包括：
+// - 协议（http 与 https）
+// - 主机（domain.com 与 www.domain.com）
+// - 端口（如果指定）
+// - 路径（如果指定）
 
-// Registered: https://app.example.com/auth/callback
-// Request must use: https://app.example.com/auth/callback
-// NOT: http://app.example.com/auth/callback (wrong protocol)
-// NOT: https://app.example.com/callback (wrong path)
-```
+// 注册：https://app.example.com/auth/callback
+// 请求必须使用：https://app.example.com/auth/callback
+// NOT: http://app.example.com/auth/callback （错误协议）
+// NOT: https://app.example.com/callback （错误路径）
+````
 
-### Issue: "Invalid state parameter"
+### 问题：“状态参数无效”
 
-**Cause:** State mismatch or missing state validation
+**原因：** 状态不匹配或缺少状态验证
 
-**Solution:**
+**解决方案：**
 ```javascript
-// Generate cryptographically secure state
+// 生成加密安全状态
 const state = crypto.randomBytes(32).toString('hex');
 
-// Store in session or encrypted cookie
-req.session.oauth2State = state;
+// 存储在session或者加密的cookie中
+req.session.oauth2State = 状态；
 
-// Validate in callback
+// 在回调中验证
 if (req.query.state !== req.session.oauth2State) {
-  throw new Error('Invalid state - possible CSRF attack');
+  throw new Error('无效状态 - 可能的 CSRF 攻击');
 }
 
-// Clear state after validation
-delete req.session.oauth2State;
-```
+// 验证后清除状态
+删除req.session.oauth2State；
+````
 
-### Issue: "Invalid code_verifier"
+### 问题：“无效的 code_verifier”
 
-**Cause:** PKCE code verifier doesn't match challenge
+**原因：** PKCE 代码验证器与质询不匹配
 
-**Solution:**
+**解决方案：**
 ```javascript
-// Ensure code verifier is stored correctly
-const codeVerifier = generateRandomString(64);
+// 确保代码验证器正确存储
+const codeVerifier =generateRandomString(64);
 sessionStorage.setItem('code_verifier', codeVerifier);
 
-// Generate challenge correctly (SHA256, base64url-encoded)
-const codeChallenge = await generateCodeChallenge(codeVerifier);
+// 正确生成质询（SHA256，base64url 编码）
+const codeChallenge =等待generateCodeChallenge(codeVerifier);
 
-// Use code_challenge_method: 'S256' (not 'plain')
-// Retrieve and send code_verifier in token request
-```
+// 使用 code_challenge_method: 'S256' （不是 'plain'）
+// 检索并发送 token 请求中的 code_verifier
+````
 
-### Issue: "Token expired"
+### 问题：“令牌已过期”
 
-**Cause:** Access token expired, not refreshed
+**原因：** 访问令牌已过期，未刷新
 
-**Solution:**
+**解决方案：**
 ```javascript
-// Implement automatic token refresh
-async function getValidToken() {
+// 实现自动令牌刷新
+异步函数 getValidToken() {
   const expiresAt = sessionStorage.getItem('token_expiry');
 
   if (Date.now() >= parseInt(expiresAt)) {
-    // Token expired, refresh it
-    await refreshAccessToken();
+    // Token过期，刷新
+    等待刷新AccessToken();
   }
 
-  return sessionStorage.getItem('access_token');
+  返回 sessionStorage.getItem('access_token');
 }
 
-// Or use proactive refresh (5 minutes before expiry)
-const refreshIn = (expiresIn - 300) * 1000;
-setTimeout(refreshAccessToken, refreshIn);
-```
+// 或者使用主动刷新（过期前5分钟）
+常量刷新 = (expiresIn - 300) * 1000;
+setTimeout（refreshAccessToken，refreshIn）；
+````
 
-## Performance Optimization
+## 性能优化
 
-### Token Caching
+### 令牌缓存
 
 ```javascript
-// Cache tokens to avoid unnecessary requests
-class TokenCache {
-  constructor() {
+// 缓存 token 以避免不必要的请求
+类 TokenCache {
+  构造函数（）{
     this.cache = new Map();
   }
 
-  get(key) {
-    const entry = this.cache.get(key);
-    if (!entry) return null;
+  获取（键）{
+    const 条目 = this.cache.get(key);
+    if (!entry) 返回 null；
 
-    // Check expiration
+    // 检查过期时间
     if (Date.now() >= entry.expiresAt) {
       this.cache.delete(key);
-      return null;
+      返回空值；
     }
 
-    return entry.token;
+    返回条目.token；
   }
 
-  set(key, token, expiresIn) {
+  设置（密钥，令牌，expiresIn）{
     this.cache.set(key, {
-      token,
-      expiresAt: Date.now() + (expiresIn * 1000),
+      令牌，
+      过期时间：Date.now() + (expiresIn * 1000),
     });
   }
 }
-```
+````
 
-### Connection Pooling
+### 连接池
 
 ```javascript
-// Reuse HTTP connections for better performance
+// 重用 HTTP 连接以获得更好的性能
 const https = require('https');
 const axios = require('axios');
 
-const agent = new https.Agent({
-  keepAlive: true,
-  maxSockets: 50,
+const 代理 = 新 https.Agent({
+  保持活动：真实，
+  最大套接字数：50，
 });
 
-const client = axios.create({
-  httpsAgent: agent,
-  timeout: 30000,
+const 客户端 = axios.create({
+  httpsAgent：代理，
+  超时：30000，
 });
-```
+````
 
-## Testing OAuth2 Implementations
+## 测试 OAuth2 实现
 
-### Mock Authorization Server
+### 模拟授权服务器
 
 ```javascript
-// Mock OAuth2 server for testing
+// 模拟 OAuth2 服务器进行测试
 const express = require('express');
 const jwt = require('jsonwebtoken');
 
-const mockAuthServer = express();
+const mockAuthServer = Express();
 
 mockAuthServer.post('/oauth/token', (req, res) => {
-  const { grant_type, code } = req.body;
+  const { grant_type, 代码 } = req.body;
 
-  if (grant_type === 'authorization_code' && code === 'test_code') {
+  if (grant_type === '授权代码' && 代码 === '测试代码') {
     res.json({
       access_token: jwt.sign({ sub: 'test_user' }, 'secret', { expiresIn: '1h' }),
-      token_type: 'Bearer',
-      expires_in: 3600,
-      refresh_token: 'test_refresh_token',
+      token_type: '承载者',
+      过期时间：3600，
+      刷新令牌：'测试刷新令牌'，
     });
-  } else {
-    res.status(400).json({ error: 'invalid_grant' });
+  } 否则{
+    res.status(400).json({ 错误: 'invalid_grant' });
   }
 });
 
 mockAuthServer.listen(9000);
-```
+````
 
-### Integration Tests
+### 集成测试
 
 ```javascript
-// Test OAuth2 flow
-describe('OAuth2 Authentication', () => {
-  it('should complete authorization code flow', async () => {
-    // 1. Initiate authorization
-    const authUrl = generateAuthorizationUrl();
-    expect(authUrl).toContain('response_type=code');
-    expect(authUrl).toContain('state=');
+// 测试 OAuth2 流程
+描述（'OAuth2身份验证'，（）=> {
+  it('应该完成授权代码流程', async () => {
+    // 1.发起授权
+    const authUrl =generateAuthorizationUrl();
+    Expect(authUrl).toContain('response_type=code');
+    Expect(authUrl).toContain('state=');
 
-    // 2. Simulate callback
-    const tokens = await handleCallback('test_code', 'test_state');
-    expect(tokens.access_token).toBeDefined();
-    expect(tokens.refresh_token).toBeDefined();
+    // 2. 模拟回调
+    const tokens =等待handleCallback('test_code', 'test_state');
+    期望(tokens.access_token).toBeDefined();
+    期望(tokens.refresh_token).toBeDefined();
 
-    // 3. Verify token can access protected resource
-    const response = await fetch('/api/protected', {
-      headers: { Authorization: `Bearer ${tokens.access_token}` },
+    // 3. 验证令牌是否可以访问受保护的资源
+    const 响应 = 等待 fetch('/api/protected', {
+      headers: { 授权: `Bearer ${tokens.access_token}` },
     });
-    expect(response.status).toBe(200);
+    期望(响应.状态).toBe(200);
   });
 });
-```
+````
 
-## Migration Strategies
+## 迁移策略
 
-### From Session-Based to OAuth2
+### 从基于会话到 OAuth2
 
-1. **Phase 1: Dual Authentication**
-   - Support both session and OAuth2 simultaneously
-   - New users use OAuth2
-   - Existing users continue with sessions
+1. **阶段 1：双重身份验证**
+   - 同时支持会话和OAuth2
+   - 新用户使用OAuth2
+   - 现有用户继续会话
 
-2. **Phase 2: Migration Flow**
-   - Prompt existing users to link OAuth2 account
-   - Migrate user data to new authentication system
-   - Maintain session as fallback
+2. **第 2 阶段：迁移流程**
+   - 提示现有用户链接OAuth2帐户
+   - 将用户数据迁移到新的身份验证系统
+   - 维持会话作为后备
 
-3. **Phase 3: Full Cutover**
-   - Deprecate session-based authentication
-   - Force remaining users to migrate
-   - Remove legacy authentication code
+3. **第 3 阶段：全面切换**
+   - 弃用基于会话的身份验证
+   - 强制剩余用户迁移
+   - 删除旧的身份验证代码
 
-### From Implicit Flow to PKCE
+### 从隐式流到 PKCE
 
 ```javascript
-// Old: Implicit Flow (deprecated)
-// response_type=token (returns token in URL)
+// 旧：隐式流（已弃用）
+//response_type=token（返回URL中的token）
 
-// New: Authorization Code Flow with PKCE
-const codeVerifier = generateRandomString(64);
-const codeChallenge = await generateCodeChallenge(codeVerifier);
+// 新：使用 PKCE 的授权代码流程
+const codeVerifier =generateRandomString(64);
+const codeChallenge =等待generateCodeChallenge(codeVerifier);
 
-// response_type=code with code_challenge
-// Tokens exchanged on backend, not exposed in URL
-```
+//response_type=code 和 code_challenge
+// 令牌在后端交换，不在 URL 中公开
+````
 
-## Additional Resources
+## 其他资源
 
-### OAuth2 Providers and Services
+### OAuth2 提供商和服务
 
-- **Auth0**: Comprehensive identity platform
-- **Okta**: Enterprise identity management
-- **Amazon Cognito**: AWS authentication service
-- **Google Identity Platform**: Google's OAuth2 provider
-- **Azure Active Directory**: Microsoft identity platform
-- **Keycloak**: Open-source identity and access management
-- **ORY Hydra**: Open-source OAuth2 server
+- **Auth0**：综合身份平台
+- **Okta**：企业身份管理
+- **Amazon Cognito**：AWS 身份验证服务
+- **Google Identity Platform**：Google 的 OAuth2 提供商
+- **Azure Active Directory**：Microsoft 身份平台
+- **Keycloak**：开源身份和访问管理
+- **ORY Hydra**：开源 OAuth2 服务器
 
-### Useful Libraries
+### 有用的库
 
-**JavaScript:**
-- `oauth4webapi` - Modern OAuth2/OIDC client
-- `passport` - Authentication middleware
-- `node-oauth2-server` - OAuth2 server
-- `jsonwebtoken` - JWT library
+**JavaScript：**
+- `oauth4webapi` - 现代 OAuth2/OIDC 客户端
+- `passport` - 身份验证中间件
+- `node-oauth2-server` - OAuth2 服务器
+- `jsonwebtoken` - JWT 库
 
-**Python:**
-- `authlib` - OAuth2/OIDC library
-- `python-oauth2` - OAuth2 provider
+**Python：**
+- `authlib` - OAuth2/OIDC 库
+- `python-oauth2` - OAuth2 提供者
 
-**PHP:**
-- `league/oauth2-client` - OAuth2 client
-- `league/oauth2-server` - OAuth2 server
+**PHP：**
+- `league/oauth2-client` - OAuth2 客户端
+- `league/oauth2-server` - OAuth2 服务器
 
-### Learning Resources
+### 学习资源
 
-- [OAuth2 Simplified](https://aaronparecki.com/oauth-2-simplified/)
-- [The OAuth 2.0 Authorization Framework (RFC 6749)](https://tools.ietf.org/html/rfc6749)
-- [OAuth 2.0 Security Best Practices](https://tools.ietf.org/html/draft-ietf-oauth-security-topics)
-- [OpenID Connect Explained](https://openid.net/connect/)
+- [OAuth2 简化](https://aaronparecki.com/oauth-2-simplified/)
+- [OAuth 2.0 授权框架 (RFC 6749)](https://tools.ietf.org/html/rfc6749)
+- [OAuth 2.0 安全最佳实践](https://tools.ietf.org/html/draft-ietf-oauth-security-topics)
+- [OpenID Connect 说明](https://openid.net/connect/)
 
-## Next Steps
+## 后续步骤
 
-1. Review the complete [SKILL.md](./SKILL.md) for detailed implementation guides
-2. Explore [EXAMPLES.md](./EXAMPLES.md) for real-world code examples
-3. Choose the appropriate OAuth2 flow for your application
-4. Implement security best practices from day one
-5. Test thoroughly with both success and error scenarios
-6. Monitor authentication metrics and security events
+1. 查看完整的 [SKILL.md](./SKILL.md) 以获取详细的实施指南
+2. 探索 [EXAMPLES.md](./EXAMPLES.md) 以获取真实的代码示例
+3. 为您的应用程序选择适当的 OAuth2 流程
+4. 从第一天起就实施安全最佳实践
+5. 对成功和错误场景进行彻底测试
+6. 监控身份验证指标和安全事件
 
 ---
 
-**Need Help?** Refer to SKILL.md for comprehensive documentation and EXAMPLES.md for complete working examples.
+**需要帮助？** 请参阅 SKILL.md 以获取全面的文档，并参阅 EXAMPLES.md 以获取完整的工作示例。

@@ -1,19 +1,19 @@
-# 北极霜冻
+# Arctic Frost
 
-凉爽明快的冬季主题，传达清晰、精确和专业精神。
+A cool and crisp winter-inspired theme that conveys clarity, precision, and professionalism.
 
-## 调色板
+## Color Palette
 
-- **冰蓝色**：`#d4e4f7` - 浅色背景和亮点
-- **钢蓝色**：`#4a6fa5` - 主要强调色
-- **银色**：`#c0c0c0` - 金属装饰元素
-- **清爽的白色**：`#fafafa` - 干净的背景和文本
+- **Ice Blue**: `#d4e4f7` - Light backgrounds and highlights
+- **Steel Blue**: `#4a6fa5` - Primary accent color
+- **Silver**: `#c0c0c0` - Metallic accent elements
+- **Crisp White**: `#fafafa` - Clean backgrounds and text
 
-## 版式
+## Typography
 
-- **标题**：DejaVu Sans Bold
-- **正文**：DejaVu Sans
+- **Headers**: DejaVu Sans Bold
+- **Body Text**: DejaVu Sans
 
-## 最适用于
+## Best Used For
 
-医疗保健演示、技术解决方案、冬季运动、清洁技术、制药内容。
+Healthcare presentations, technology solutions, winter sports, clean tech, pharmaceutical content.

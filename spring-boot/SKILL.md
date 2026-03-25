@@ -1,27 +1,27 @@
 ---
-name: spring-boot-development
-description: Comprehensive Spring Boot development skill covering auto-configuration, dependency injection, REST APIs, Spring Data, security, and enterprise Java applications
+name: spring-boot-domestic-enterprise-development
+description: Comprehensive Spring Boot development skill covering auto-configuration, dependency injection, REST APIs, MyBatis-Plus, security, and enterprise Java applications (Domestic Standard)
 category: backend
-tags: [spring-boot, java, rest-api, spring-data, jpa, security, microservices, enterprise]
-version: 1.0.0
+tags: [spring-boot, java, rest-api, mybatis-plus, mysql, security, microservices, enterprise]
+version: 2.0.0
 context7_library: /spring-projects/spring-boot
 context7_trust_score: 7.5
 ---
 
-# Spring Boot Development Skill
+# Spring Boot Development Skill (Domestic Enterprise Edition)
 
-This skill provides comprehensive guidance for building modern Spring Boot applications using auto-configuration, dependency injection, REST APIs, Spring Data, Spring Security, and enterprise Java patterns based on official Spring Boot documentation.
+This skill provides comprehensive guidance for building modern Spring Boot applications using auto-configuration, dependency injection, REST APIs, MyBatis-Plus, Spring Security, and enterprise Java patterns based on official Spring Boot documentation, adapted strictly for domestic enterprise standards (MySQL, MyBatis-Plus, Unified Result Wrapper).
 
 ## When to Use This Skill
 
 Use this skill when:
-- Building enterprise REST APIs and microservices
+- Building enterprise REST APIs and microservices with Vue/React frontends
 - Creating web applications with Spring MVC
-- Developing data-driven applications with JPA and databases
-- Implementing authentication and authorization with Spring Security
+- Developing data-driven applications with **MyBatis-Plus** and **MySQL** (Strictly NO Spring Data JPA)
+- Implementing authentication and authorization with Spring Security & JWT
 - Building production-ready applications with actuator and monitoring
 - Creating scalable backend services with Spring Boot
-- Migrating from traditional Spring to Spring Boot
+- Standardizing API responses with a **Unified Result Wrapper**
 - Developing cloud-native applications
 - Building event-driven systems with messaging
 - Creating batch processing applications
@@ -78,37 +78,30 @@ public class MyApplication {
 
 Spring's IoC (Inversion of Control) container manages object creation and dependency injection.
 
-**Constructor Injection (Recommended):**
+**Constructor Injection (STRICTLY RECOMMENDED - Domestic Standard via Lombok):**
 ```java
 @Service
+@RequiredArgsConstructor // Provided by Lombok, standard in domestic enterprise
 public class UserService {
 
-    private final UserRepository userRepository;
+    private final UserMapper userMapper;
     private final EmailService emailService;
 
-    // Constructor injection - recommended approach
-    public UserService(UserRepository userRepository, EmailService emailService) {
-        this.userRepository = userRepository;
-        this.emailService = emailService;
-    }
-
     public User createUser(User user) {
-        User saved = userRepository.save(user);
-        emailService.sendWelcomeEmail(saved);
-        return saved;
+        userMapper.insert(user);
+        emailService.sendWelcomeEmail(user);
+        return user;
     }
 }
 ```
 
-**Field Injection (Not Recommended):**
+**Field Injection (PROHIBITED IN ENTERPRISE):**
 ```java
 @Service
 public class UserService {
 
-    @Autowired  // Avoid field injection
-    private UserRepository userRepository;
-
-    // Difficult to test and creates tight coupling
+    @Autowired  // Avoid field injection: Causes circular dependencies, hard to mock in tests
+    private UserMapper userMapper;
 }
 ```
 
@@ -117,12 +110,12 @@ public class UserService {
 @Service
 public class UserService {
 
-    private UserRepository userRepository;
+    private UserMapper userMapper;
     private EmailService emailService;
 
     @Autowired
-    public void setUserRepository(UserRepository userRepository) {
-        this.userRepository = userRepository;
+    public void setUserMapper(UserMapper userMapper) {
+        this.userMapper = userMapper;
     }
 
     @Autowired(required = false)
@@ -140,8 +133,8 @@ public class MyComponent { }
 @Service    // Business logic layer
 public class MyService { }
 
-@Repository // Data access layer
-public class MyRepository { }
+@Mapper     // Data access layer (MyBatis-Plus standard)
+public interface MyMapper extends BaseMapper<Entity> { }
 
 @Controller // Presentation layer (web)
 public class MyController { }
@@ -150,59 +143,80 @@ public class MyController { }
 public class MyRestController { }
 ```
 
-### Spring Web (REST APIs)
+### Spring Web (REST APIs & Unified Result)
 
-Build RESTful web services with Spring MVC annotations.
+Build RESTful web services. **Absolute Rule: Never return raw Entities, Lists, or `ResponseEntity`. ALWAYS wrap responses in a `Result<T>` class.**
+
+**Unified Result Wrapper (Assume this exists in the project):**
+```java
+@Data
+public class Result<T> {
+    private Integer code;
+    private String msg;
+    private T data;
+
+    public static <T> Result<T> success(T data) {
+        Result<T> r = new Result<>();
+        r.setCode(200);
+        r.setMsg("操作成功");
+        r.setData(data);
+        return r;
+    }
+
+    public static <T> Result<T> error(Integer code, String msg) {
+        Result<T> r = new Result<>();
+        r.setCode(code);
+        r.setMsg(msg);
+        return r;
+    }
+}
+```
 
 **Basic REST Controller:**
 ```java
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/api/v1/users")
+@RequiredArgsConstructor
 public class UserController {
 
     private final UserService userService;
 
-    public UserController(UserService userService) {
-        this.userService = userService;
-    }
-
     @GetMapping
-    public List<User> getAllUsers() {
-        return userService.findAll();
+    public Result<List<UserVO>> getAllUsers() {
+        List<User> users = userService.list();
+        List<UserVO> voList = BeanUtil.copyToList(users, UserVO.class);
+        return Result.success(voList);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<User> getUserById(@PathVariable Long id) {
-        return userService.findById(id)
-            .map(ResponseEntity::ok)
-            .orElse(ResponseEntity.notFound().build());
+    public Result<UserVO> getUserById(@PathVariable Long id) {
+        User user = userService.getById(id);
+        if (user == null) {
+            throw new BusinessException(404, "用户不存在");
+        }
+        UserVO vo = BeanUtil.copyProperties(user, UserVO.class);
+        return Result.success(vo);
     }
 
     @PostMapping
-    public ResponseEntity<User> createUser(@RequestBody @Valid User user) {
-        User created = userService.save(user);
-        URI location = ServletUriComponentsBuilder
-            .fromCurrentRequest()
-            .path("/{id}")
-            .buildAndExpand(created.getId())
-            .toUri();
-        return ResponseEntity.created(location).body(created);
+    public Result<Void> createUser(@RequestBody @Valid UserDTO userDTO) {
+        User user = BeanUtil.copyProperties(userDTO, User.class);
+        userService.save(user);
+        return Result.success(null);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<User> updateUser(@PathVariable Long id,
-                                          @RequestBody @Valid User user) {
-        return userService.update(id, user)
-            .map(ResponseEntity::ok)
-            .orElse(ResponseEntity.notFound().build());
+    public Result<Void> updateUser(@PathVariable Long id, @RequestBody @Valid UserDTO userDTO) {
+        User user = BeanUtil.copyProperties(userDTO, User.class);
+        user.setId(id);
+        userService.updateById(user);
+        return Result.success(null);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
-        if (userService.delete(id)) {
-            return ResponseEntity.noContent().build();
-        }
-        return ResponseEntity.notFound().build();
+    public Result<Void> deleteUser(@PathVariable Long id) {
+        userService.removeById(id);
+        return Result.success(null);
     }
 }
 ```
@@ -210,259 +224,135 @@ public class UserController {
 **Request Mapping Variations:**
 ```java
 @RestController
-@RequestMapping("/api/products")
+@RequestMapping("/api/v1/products")
+@RequiredArgsConstructor
 public class ProductController {
+
+    private final ProductService productService;
 
     // Query parameters
     @GetMapping("/search")
-    public List<Product> search(@RequestParam String name,
-                               @RequestParam(required = false) String category) {
-        return productService.search(name, category);
+    public Result<List<ProductVO>> search(@RequestParam String name,
+                                          @RequestParam(required = false) String category) {
+        return Result.success(productService.search(name, category));
     }
 
     // Multiple path variables
     @GetMapping("/categories/{categoryId}/products/{productId}")
-    public Product getProductInCategory(@PathVariable Long categoryId,
-                                       @PathVariable Long productId) {
-        return productService.findInCategory(categoryId, productId);
+    public Result<ProductVO> getProductInCategory(@PathVariable Long categoryId,
+                                                  @PathVariable Long productId) {
+        return Result.success(productService.findInCategory(categoryId, productId));
     }
 
     // Request headers
     @GetMapping("/{id}")
-    public Product getProduct(@PathVariable Long id,
-                             @RequestHeader("Accept-Language") String language) {
-        return productService.find(id, language);
+    public Result<ProductVO> getProduct(@PathVariable Long id,
+                                        @RequestHeader("Accept-Language") String language) {
+        return Result.success(productService.find(id, language));
     }
 
     // Matrix variables
-    @GetMapping("/{id}")
-    public Product getProductWithMatrix(@PathVariable Long id,
-                                       @MatrixVariable Map<String, String> filters) {
-        return productService.findWithFilters(id, filters);
+    @GetMapping("/matrix/{id}")
+    public Result<ProductVO> getProductWithMatrix(@PathVariable Long id,
+                                                  @MatrixVariable Map<String, String> filters) {
+        return Result.success(productService.findWithFilters(id, filters));
     }
 }
 ```
 
-**Response Handling:**
+**Response Handling (Custom Headers with Result wrapper):**
 ```java
 @RestController
-@RequestMapping("/api/orders")
+@RequestMapping("/api/v1/orders")
+@RequiredArgsConstructor
 public class OrderController {
 
-    // Return different status codes
-    @PostMapping
-    public ResponseEntity<Order> createOrder(@RequestBody Order order) {
-        Order created = orderService.create(order);
-        return ResponseEntity.status(HttpStatus.CREATED).body(created);
-    }
+    private final OrderService orderService;
 
-    // Custom headers
     @GetMapping("/{id}")
-    public ResponseEntity<Order> getOrder(@PathVariable Long id) {
-        Order order = orderService.findById(id);
-        return ResponseEntity.ok()
-            .header("X-Order-Version", order.getVersion().toString())
-            .body(order);
-    }
-
-    // No content response
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteOrder(@PathVariable Long id) {
-        orderService.delete(id);
-        return ResponseEntity.noContent().build();
+    public Result<OrderVO> getOrder(@PathVariable Long id, HttpServletResponse response) {
+        Order order = orderService.getById(id);
+        if (order != null) {
+            response.setHeader("X-Order-Version", order.getVersion().toString());
+        }
+        OrderVO vo = BeanUtil.copyProperties(order, OrderVO.class);
+        return Result.success(vo);
     }
 }
 ```
 
-### Spring Data JPA
+### Database Access (MyBatis-Plus & MySQL)
 
-Spring Data JPA provides repository abstractions for database access.
+Spring Data JPA is completely replaced by MyBatis-Plus to match domestic enterprise standards.
 
 **Entity Definition:**
 ```java
-@Entity
-@Table(name = "users")
+@Data
+@TableName("sys_user") // Explicit table mapping
 public class User {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @TableId(type = IdType.AUTO) // MySQL Auto Increment
     private Long id;
 
-    @Column(nullable = false, unique = true)
     private String email;
-
-    @Column(nullable = false)
     private String name;
+    private String password;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
+    @TableField(fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updatedAt;
+    
+    @TableLogic // Logical deletion (0=normal, 1=deleted)
+    private Integer isDeleted;
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Order> orders = new ArrayList<>();
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "department_id")
+    // For manual relationships (MyBatis-Plus does not use @OneToMany etc.)
+    @TableField(exist = false)
     private Department department;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
-
-    // Getters and setters
 }
 ```
 
-**Repository Interface:**
+**Mapper Interface:**
 ```java
-@Repository
-public interface UserRepository extends JpaRepository<User, Long> {
-
-    // Query method - Spring Data generates implementation
-    Optional<User> findByEmail(String email);
-
-    List<User> findByNameContaining(String name);
-
-    List<User> findByDepartmentId(Long departmentId);
-
-    // Custom JPQL query
-    @Query("SELECT u FROM User u WHERE u.email = ?1")
-    Optional<User> findByEmailQuery(String email);
-
-    // Named parameters
-    @Query("SELECT u FROM User u WHERE u.name LIKE %:name% AND u.department.id = :deptId")
-    List<User> searchByNameAndDepartment(@Param("name") String name,
-                                        @Param("deptId") Long deptId);
-
-    // Native SQL query
-    @Query(value = "SELECT * FROM users WHERE email = ?1", nativeQuery = true)
-    Optional<User> findByEmailNative(String email);
-
-    // Modifying query
-    @Modifying
-    @Query("UPDATE User u SET u.name = :name WHERE u.id = :id")
-    int updateUserName(@Param("id") Long id, @Param("name") String name);
-
-    // Pagination and sorting
-    Page<User> findByDepartmentId(Long departmentId, Pageable pageable);
-
-    List<User> findByNameContaining(String name, Sort sort);
+@Mapper
+public interface UserMapper extends BaseMapper<User> {
+    
+    // Custom SQL query using annotations
+    @Select("SELECT * FROM sys_user WHERE email = #{email} AND is_deleted = 0")
+    User findByEmailCustom(@Param("email") String email);
+    
+    // Complex queries should be written in UserMapper.xml
+    List<User> searchByNameAndDepartment(@Param("name") String name, @Param("deptId") Long deptId);
 }
 ```
 
-**Repository Usage:**
+**Service Layer (IService Pattern):**
 ```java
+// Interface
+public interface UserService extends IService<User> {
+    Page<User> findUsersByPage(int pageNum, int pageSize, String name);
+}
+
+// Implementation
 @Service
-public class UserService {
+@RequiredArgsConstructor
+public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
 
-    private final UserRepository userRepository;
-
-    public UserService(UserRepository userRepository) {
-        this.userRepository = userRepository;
-    }
-
-    public Optional<User> findById(Long id) {
-        return userRepository.findById(id);
-    }
-
-    public User save(User user) {
-        return userRepository.save(user);
-    }
-
-    public List<User> findAll() {
-        return userRepository.findAll();
-    }
-
-    public Page<User> findAll(int page, int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by("name"));
-        return userRepository.findAll(pageable);
-    }
-
-    public boolean delete(Long id) {
-        if (userRepository.existsById(id)) {
-            userRepository.deleteById(id);
-            return true;
-        }
-        return false;
+    @Override
+    public Page<User> findUsersByPage(int pageNum, int pageSize, String name) {
+        Page<User> page = new Page<>(pageNum, pageSize);
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.like(StringUtils.isNotBlank(name), User::getName, name)
+                    .orderByDesc(User::getCreatedAt);
+        return this.page(page, queryWrapper);
     }
 }
 ```
 
-**Relationships:**
-```java
-// One-to-Many
-@Entity
-public class Order {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
-    private User user;
-
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<OrderItem> items = new ArrayList<>();
-}
-
-// Many-to-Many
-@Entity
-public class Student {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @ManyToMany
-    @JoinTable(
-        name = "student_course",
-        joinColumns = @JoinColumn(name = "student_id"),
-        inverseJoinColumns = @JoinColumn(name = "course_id")
-    )
-    private Set<Course> courses = new HashSet<>();
-}
-```
-
-### Configuration
+### Configuration (MySQL & MyBatis-Plus)
 
 Spring Boot uses `application.properties` or `application.yml` for configuration.
-
-**Application Properties:**
-```properties
-# Server configuration
-server.port=8080
-server.servlet.context-path=/api
-
-# Database configuration
-spring.datasource.url=jdbc:postgresql://localhost:5432/mydb
-spring.datasource.username=user
-spring.datasource.password=password
-spring.datasource.driver-class-name=org.postgresql.Driver
-
-# JPA configuration
-spring.jpa.hibernate.ddl-auto=validate
-spring.jpa.show-sql=true
-spring.jpa.properties.hibernate.format_sql=true
-spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
-
-# Logging
-logging.level.root=INFO
-logging.level.com.example=DEBUG
-logging.level.org.springframework.web=DEBUG
-logging.pattern.console=%d{yyyy-MM-dd HH:mm:ss} - %msg%n
-
-# Custom properties
-app.name=My Application
-app.version=1.0.0
-```
 
 **Application YAML:**
 ```yaml
@@ -473,19 +363,22 @@ server:
 
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/mydb
-    username: user
+    url: jdbc:mysql://localhost:3306/mydb?useUnicode=true&characterEncoding=utf8&serverTimezone=GMT%2B8
+    username: root
     password: password
-    driver-class-name: org.postgresql.Driver
+    driver-class-name: com.mysql.cj.jdbc.Driver
 
-  jpa:
-    hibernate:
-      ddl-auto: validate
-    show-sql: true
-    properties:
-      hibernate:
-        format_sql: true
-        dialect: org.hibernate.dialect.PostgreSQLDialect
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: isDeleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl # Print SQL in dev
 
 logging:
   level:
@@ -494,7 +387,7 @@ logging:
     org.springframework.web: DEBUG
 
 app:
-  name: My Application
+  name: Enterprise Application
   version: 1.0.0
 ```
 
@@ -502,35 +395,16 @@ app:
 ```java
 @Configuration
 @ConfigurationProperties(prefix = "app")
+@Data
 public class AppConfig {
-
     private String name;
     private String version;
     private Security security = new Security();
 
+    @Data
     public static class Security {
-        private int tokenExpiration = 3600;
-        private String secretKey;
-
-        // Getters and setters
-    }
-
-    // Getters and setters
-}
-
-// Usage
-@Service
-public class MyService {
-
-    private final AppConfig appConfig;
-
-    public MyService(AppConfig appConfig) {
-        this.appConfig = appConfig;
-    }
-
-    public void printConfig() {
-        System.out.println("App: " + appConfig.getName());
-        System.out.println("Version: " + appConfig.getVersion());
+        private int jwtExpiration = 86400000; // 24 hours
+        private String jwtSecret;
     }
 }
 ```
@@ -541,56 +415,44 @@ public class MyService {
 spring.profiles.active=dev
 
 # application-dev.properties
-spring.datasource.url=jdbc:postgresql://localhost:5432/mydb_dev
+spring.datasource.url=jdbc:mysql://localhost:3306/mydb_dev
 logging.level.root=DEBUG
 
 # application-prod.properties
-spring.datasource.url=jdbc:postgresql://prod-server:5432/mydb_prod
+spring.datasource.url=jdbc:mysql://prod-server:3306/mydb_prod
 logging.level.root=WARN
 ```
 
-**Profile-Specific Beans:**
-```java
-@Configuration
-public class DatabaseConfig {
+### Spring Security (JWT Authentication)
 
-    @Bean
-    @Profile("dev")
-    public DataSource devDataSource() {
-        return new EmbeddedDatabaseBuilder()
-            .setType(EmbeddedDatabaseType.H2)
-            .build();
-    }
-
-    @Bean
-    @Profile("prod")
-    public DataSource prodDataSource() {
-        return DataSourceBuilder.create().build();
-    }
-}
-```
-
-### Spring Security
-
-Implement authentication and authorization in your application.
+Implement authentication and authorization in your application using JWT and MyBatis-Plus.
 
 **Basic Security Configuration:**
 ```java
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity // Replaces deprecated @EnableGlobalMethodSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
+
+    private final JwtAuthenticationFilter jwtAuthFilter;
+    private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .csrf().disable()
+            .csrf(AbstractHttpConfigurer::disable)
+            .cors(Customizer.withDefaults())
+            .exceptionHandling(exception -> exception
+                .authenticationEntryPoint(jwtAuthenticationEntryPoint)
+            )
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/public/**").permitAll()
-                .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                .requestMatchers("/api/users/**").hasAnyRole("USER", "ADMIN")
+                .requestMatchers("/api/v1/auth/**", "/api/v1/public/**").permitAll()
+                .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )
-            .httpBasic();
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
@@ -599,110 +461,68 @@ public class SecurityConfig {
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
-}
-```
-
-**In-Memory Authentication:**
-```java
-@Configuration
-@EnableWebSecurity
-public class SecurityConfig {
-
+    
     @Bean
-    public UserDetailsService userDetailsService(PasswordEncoder passwordEncoder) {
-        UserDetails user = User.builder()
-            .username("user")
-            .password(passwordEncoder.encode("password"))
-            .roles("USER")
-            .build();
-
-        UserDetails admin = User.builder()
-            .username("admin")
-            .password(passwordEncoder.encode("admin"))
-            .roles("ADMIN", "USER")
-            .build();
-
-        return new InMemoryUserDetailsManager(user, admin);
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
     }
 }
 ```
 
-**Database Authentication:**
+**Database Authentication (Adapted for MyBatis-Plus):**
 ```java
 @Service
+@RequiredArgsConstructor
 public class CustomUserDetailsService implements UserDetailsService {
 
-    private final UserRepository userRepository;
-
-    public CustomUserDetailsService(UserRepository userRepository) {
-        this.userRepository = userRepository;
-    }
+    private final UserMapper userMapper;
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user = userRepository.findByEmail(username)
-            .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
+        User user = userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getEmail, username));
+        if (user == null) {
+            throw new UsernameNotFoundException("User not found: " + username);
+        }
 
         return org.springframework.security.core.userdetails.User.builder()
             .username(user.getEmail())
             .password(user.getPassword())
-            .roles(user.getRoles().toArray(new String[0]))
+            .roles("USER") // Assign real roles from DB here
             .build();
-    }
-}
-
-@Configuration
-@EnableWebSecurity
-public class SecurityConfig {
-
-    private final CustomUserDetailsService userDetailsService;
-
-    public SecurityConfig(CustomUserDetailsService userDetailsService) {
-        this.userDetailsService = userDetailsService;
-    }
-
-    @Bean
-    public DaoAuthenticationProvider authenticationProvider(PasswordEncoder passwordEncoder) {
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-        provider.setUserDetailsService(userDetailsService);
-        provider.setPasswordEncoder(passwordEncoder);
-        return provider;
     }
 }
 ```
 
-**JWT Authentication:**
+**JWT Token Provider:**
 ```java
 @Component
 public class JwtTokenProvider {
 
-    @Value("${app.security.jwt.secret}")
+    @Value("${app.security.jwtSecret}")
     private String jwtSecret;
 
-    @Value("${app.security.jwt.expiration}")
-    private int jwtExpiration;
+    @Value("${app.security.jwtExpiration}")
+    private int jwtExpirationMs;
 
     public String generateToken(Authentication authentication) {
-        UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
-
+        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
         Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + jwtExpiration);
+        Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
 
         return Jwts.builder()
-            .setSubject(Long.toString(userPrincipal.getId()))
+            .setSubject(userDetails.getUsername())
             .setIssuedAt(now)
             .setExpiration(expiryDate)
             .signWith(SignatureAlgorithm.HS512, jwtSecret)
             .compact();
     }
 
-    public Long getUserIdFromJWT(String token) {
+    public String getUsernameFromJWT(String token) {
         Claims claims = Jwts.parser()
             .setSigningKey(jwtSecret)
             .parseClaimsJws(token)
             .getBody();
-
-        return Long.parseLong(claims.getSubject());
+        return claims.getSubject();
     }
 
     public boolean validateToken(String authToken) {
@@ -715,39 +535,35 @@ public class JwtTokenProvider {
         }
     }
 }
+```
 
+**JWT Authentication Filter:**
+```java
 @Component
+@RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider tokenProvider;
     private final CustomUserDetailsService customUserDetailsService;
 
-    public JwtAuthenticationFilter(JwtTokenProvider tokenProvider,
-                                  CustomUserDetailsService customUserDetailsService) {
-        this.tokenProvider = tokenProvider;
-        this.customUserDetailsService = customUserDetailsService;
-    }
-
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                   HttpServletResponse response,
-                                   FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) 
+            throws ServletException, IOException {
         try {
             String jwt = getJwtFromRequest(request);
 
-            if (jwt != null && tokenProvider.validateToken(jwt)) {
-                Long userId = tokenProvider.getUserIdFromJWT(jwt);
-
-                UserDetails userDetails = customUserDetailsService.loadUserById(userId);
-                UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(
-                        userDetails, null, userDetails.getAuthorities()
-                    );
+            if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
+                String username = tokenProvider.getUsernameFromJWT(jwt);
+                UserDetails userDetails = customUserDetailsService.loadUserByUsername(username);
+                
+                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                        userDetails, null, userDetails.getAuthorities());
+                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         } catch (Exception ex) {
-            logger.error("Could not set user authentication", ex);
+            logger.error("Could not set user authentication in security context", ex);
         }
 
         filterChain.doFilter(request, response);
@@ -762,7 +578,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 }
 ```
-
 ## API Reference
 
 ### Common Annotations
@@ -771,16 +586,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 - `@SpringBootApplication`: Main application class
 - `@Component`: Generic component
 - `@Service`: Service layer component
-- `@Repository`: Data access layer component
 - `@Configuration`: Configuration class
 - `@Bean`: Bean definition method
-- `@Autowired`: Dependency injection
+- `@RequiredArgsConstructor`: Lombok dependency injection (Domestic standard, replaces `@Autowired`)
 - `@Value`: Inject property values
 - `@Profile`: Conditional beans based on profiles
 
 **Web Annotations:**
-- `@RestController`: REST API controller
-- `@Controller`: MVC controller
+- `@RestController`: REST API controller (Always returns `Result<T>`)
 - `@RequestMapping`: Map HTTP requests
 - `@GetMapping`: Map GET requests
 - `@PostMapping`: Map POST requests
@@ -791,23 +604,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 - `@RequestParam`: Extract query parameters
 - `@RequestBody`: Extract request body
 - `@RequestHeader`: Extract request headers
-- `@ResponseStatus`: Set response status
 
-**Data Annotations:**
-- `@Entity`: JPA entity
-- `@Table`: Table mapping
-- `@Id`: Primary key
-- `@GeneratedValue`: Auto-generated values
-- `@Column`: Column mapping
-- `@OneToOne`: One-to-one relationship
-- `@OneToMany`: One-to-many relationship
-- `@ManyToOne`: Many-to-one relationship
-- `@ManyToMany`: Many-to-many relationship
-- `@JoinColumn`: Join column
-- `@JoinTable`: Join table
+**Data Annotations (Strictly MyBatis-Plus, NO JPA):**
+- `@TableName`: Table mapping
+- `@TableId`: Primary key mapping (use `type = IdType.AUTO` for MySQL)
+- `@TableField`: Column mapping, handle field fills (`exist = false` for non-db fields)
+- `@TableLogic`: Logical deletion flag
+- `@Mapper`: Marks interface as MyBatis mapper
 
 **Validation Annotations:**
-- `@Valid`: Enable validation
+- `@Valid` / `@Validated`: Enable validation
 - `@NotNull`: Field cannot be null
 - `@NotEmpty`: Field cannot be empty
 - `@NotBlank`: Field cannot be blank
@@ -818,14 +624,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 - `@Pattern`: Regex pattern
 
 **Transaction Annotations:**
-- `@Transactional`: Enable transaction management
+- `@Transactional(rollbackFor = Exception.class)`: Enable transaction management (Domestic standard specifies rollback for all Exceptions)
 - `@Transactional(readOnly = true)`: Read-only transaction
 
 **Security Annotations:**
 - `@EnableWebSecurity`: Enable security
+- `@EnableMethodSecurity`: Enable method-level security (Replaces deprecated `@EnableGlobalMethodSecurity`)
 - `@PreAuthorize`: Method-level authorization
 - `@PostAuthorize`: Post-method authorization
-- `@Secured`: Role-based access
 
 **Async and Scheduling:**
 - `@EnableAsync`: Enable async processing
@@ -837,14 +643,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 ### REST API Design Pattern
 
-**Complete CRUD REST API:**
+**Complete CRUD REST API (MyBatis-Plus & Result Wrapper):**
 ```java
 // Entity
-@Entity
-@Table(name = "products")
+@Data
+@TableName("products")
 public class Product {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @TableId(type = IdType.AUTO)
     private Long id;
 
     @NotBlank(message = "Name is required")
@@ -861,136 +666,97 @@ public class Product {
     @Min(value = 0, message = "Stock must be positive")
     private Integer stock;
 
+    @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
+    
+    @TableField(fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updatedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
-
-    // Getters and setters
 }
 
-// Repository
-@Repository
-public interface ProductRepository extends JpaRepository<Product, Long> {
-    List<Product> findByNameContaining(String name);
-    List<Product> findByPriceBetween(BigDecimal minPrice, BigDecimal maxPrice);
+// Mapper
+@Mapper
+public interface ProductMapper extends BaseMapper<Product> {
+    // Basic CRUD handled by BaseMapper
 }
 
-// Service
+// Service Interface
+public interface ProductService extends IService<Product> {
+    Page<Product> findAllByPage(int page, int size, String sortBy);
+}
+
+// Service Implementation
 @Service
-@Transactional
-public class ProductService {
+@RequiredArgsConstructor
+public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> implements ProductService {
 
-    private final ProductRepository productRepository;
-
-    public ProductService(ProductRepository productRepository) {
-        this.productRepository = productRepository;
-    }
-
+    @Override
     @Transactional(readOnly = true)
-    public Page<Product> findAll(Pageable pageable) {
-        return productRepository.findAll(pageable);
-    }
-
-    @Transactional(readOnly = true)
-    public Optional<Product> findById(Long id) {
-        return productRepository.findById(id);
-    }
-
-    public Product create(Product product) {
-        return productRepository.save(product);
-    }
-
-    public Optional<Product> update(Long id, Product productDetails) {
-        return productRepository.findById(id)
-            .map(product -> {
-                product.setName(productDetails.getName());
-                product.setDescription(productDetails.getDescription());
-                product.setPrice(productDetails.getPrice());
-                product.setStock(productDetails.getStock());
-                return productRepository.save(product);
-            });
-    }
-
-    public boolean delete(Long id) {
-        return productRepository.findById(id)
-            .map(product -> {
-                productRepository.delete(product);
-                return true;
-            })
-            .orElse(false);
+    public Page<Product> findAllByPage(int page, int size, String sortBy) {
+        Page<Product> pageParam = new Page<>(page, size);
+        QueryWrapper<Product> queryWrapper = new QueryWrapper<>();
+        // Note: In real scenarios, sanitize 'sortBy' or use LambdaQueryWrapper to prevent SQL Injection
+        queryWrapper.orderByDesc(StringUtils.isNotBlank(sortBy), sortBy);
+        return this.page(pageParam, queryWrapper);
     }
 }
 
 // Controller
 @RestController
 @RequestMapping("/api/products")
+@RequiredArgsConstructor
 public class ProductController {
 
     private final ProductService productService;
 
-    public ProductController(ProductService productService) {
-        this.productService = productService;
-    }
-
     @GetMapping
-    public Page<Product> getAllProducts(
-            @RequestParam(defaultValue = "0") int page,
+    public Result<Page<Product>> getAllProducts(
+            @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "id") String sortBy) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(sortBy));
-        return productService.findAll(pageable);
+            @RequestParam(defaultValue = "createdAt") String sortBy) {
+        return Result.success(productService.findAllByPage(page, size, sortBy));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Product> getProductById(@PathVariable Long id) {
-        return productService.findById(id)
-            .map(ResponseEntity::ok)
-            .orElse(ResponseEntity.notFound().build());
+    public Result<Product> getProductById(@PathVariable Long id) {
+        Product product = productService.getById(id);
+        if (product == null) {
+            return Result.error(404, "Product not found");
+        }
+        return Result.success(product);
     }
 
     @PostMapping
-    public ResponseEntity<Product> createProduct(@Valid @RequestBody Product product) {
-        Product created = productService.create(product);
-        URI location = ServletUriComponentsBuilder
-            .fromCurrentRequest()
-            .path("/{id}")
-            .buildAndExpand(created.getId())
-            .toUri();
-        return ResponseEntity.created(location).body(created);
+    public Result<Product> createProduct(@Valid @RequestBody Product product) {
+        productService.save(product);
+        return Result.success(product);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Product> updateProduct(
+    public Result<Product> updateProduct(
             @PathVariable Long id,
             @Valid @RequestBody Product product) {
-        return productService.update(id, product)
-            .map(ResponseEntity::ok)
-            .orElse(ResponseEntity.notFound().build());
+        product.setId(id);
+        boolean success = productService.updateById(product);
+        if (!success) {
+            return Result.error(404, "Product not found");
+        }
+        return Result.success(product);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteProduct(@PathVariable Long id) {
-        if (productService.delete(id)) {
-            return ResponseEntity.noContent().build();
+    public Result<Void> deleteProduct(@PathVariable Long id) {
+        boolean success = productService.removeById(id);
+        if (!success) {
+            return Result.error(404, "Product not found");
         }
-        return ResponseEntity.notFound().build();
+        return Result.success(null);
     }
 }
 ```
 
 ### Exception Handling Pattern
 
-**Global Exception Handler:**
+**Global Exception Handler (Adapted for Result<T>):**
 ```java
 // Custom exceptions
 public class ResourceNotFoundException extends RuntimeException {
@@ -1005,163 +771,107 @@ public class BadRequestException extends RuntimeException {
     }
 }
 
-// Error response
-public class ErrorResponse {
-    private LocalDateTime timestamp;
-    private int status;
-    private String error;
-    private String message;
-    private String path;
-
-    // Constructors, getters, setters
-}
-
 // Global exception handler
 @RestControllerAdvice
+@Slf4j
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleResourceNotFound(
-            ResourceNotFoundException ex,
-            WebRequest request) {
-        ErrorResponse error = new ErrorResponse(
-            LocalDateTime.now(),
-            HttpStatus.NOT_FOUND.value(),
-            "Not Found",
-            ex.getMessage(),
-            request.getDescription(false).replace("uri=", "")
-        );
-        return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
+    public Result<Void> handleResourceNotFound(ResourceNotFoundException ex) {
+        log.warn("Resource Not Found: {}", ex.getMessage());
+        return Result.error(404, ex.getMessage());
     }
 
     @ExceptionHandler(BadRequestException.class)
-    public ResponseEntity<ErrorResponse> handleBadRequest(
-            BadRequestException ex,
-            WebRequest request) {
-        ErrorResponse error = new ErrorResponse(
-            LocalDateTime.now(),
-            HttpStatus.BAD_REQUEST.value(),
-            "Bad Request",
-            ex.getMessage(),
-            request.getDescription(false).replace("uri=", "")
-        );
-        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+    public Result<Void> handleBadRequest(BadRequestException ex) {
+        log.warn("Bad Request: {}", ex.getMessage());
+        return Result.error(400, ex.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String, Object>> handleValidationErrors(
-            MethodArgumentNotValidException ex) {
-        Map<String, Object> errors = new HashMap<>();
-        errors.put("timestamp", LocalDateTime.now());
-        errors.put("status", HttpStatus.BAD_REQUEST.value());
-
+    public Result<Map<String, String>> handleValidationErrors(MethodArgumentNotValidException ex) {
         Map<String, String> fieldErrors = new HashMap<>();
         ex.getBindingResult().getFieldErrors().forEach(error ->
             fieldErrors.put(error.getField(), error.getDefaultMessage())
         );
-        errors.put("errors", fieldErrors);
-
-        return new ResponseEntity<>(errors, HttpStatus.BAD_REQUEST);
+        log.warn("Validation Error: {}", fieldErrors);
+        
+        Result<Map<String, String>> result = Result.error(400, "参数校验失败");
+        result.setData(fieldErrors);
+        return result;
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleGlobalException(
-            Exception ex,
-            WebRequest request) {
-        ErrorResponse error = new ErrorResponse(
-            LocalDateTime.now(),
-            HttpStatus.INTERNAL_SERVER_ERROR.value(),
-            "Internal Server Error",
-            ex.getMessage(),
-            request.getDescription(false).replace("uri=", "")
-        );
-        return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
+    public Result<Void> handleGlobalException(Exception ex) {
+        log.error("Internal Server Error: ", ex);
+        return Result.error(500, "系统内部异常，请联系管理员");
     }
 }
 ```
 
 ### Database Integration Pattern
 
-**Complete Database Setup:**
-```java
-// application.yml
-/*
+**Complete Database Setup (MySQL + MyBatis-Plus Auto Fill):**
+```yaml
+# application.yml
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/mydb
-    username: user
+    url: jdbc:mysql://localhost:3306/mydb?useUnicode=true&characterEncoding=utf8&serverTimezone=GMT%2B8
+    username: root
     password: password
-  jpa:
-    hibernate:
-      ddl-auto: validate
-    show-sql: true
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-*/
+    driver-class-name: com.mysql.cj.jdbc.Driver
 
-// Flyway migrations (db/migration/V1__Create_users_table.sql)
-/*
-CREATE TABLE users (
-    id BIGSERIAL PRIMARY KEY,
+mybatis-plus:
+  global-config:
+    db-config:
+      id-type: auto
+```
+
+**Flyway migrations (db/migration/V1__Create_users_table.sql - MySQL Syntax):**
+```sql
+CREATE TABLE sys_user (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
     email VARCHAR(255) NOT NULL UNIQUE,
     name VARCHAR(255) NOT NULL,
     password VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP NOT NULL
-);
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE INDEX idx_users_email ON users(email);
-*/
+CREATE INDEX idx_users_email ON sys_user(email);
+```
 
-// Entity with auditing
-@Entity
-@Table(name = "users")
-@EntityListeners(AuditingEntityListener.class)
-public class User {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+**MyBatis-Plus Auditing (MetaObjectHandler):**
+```java
+// Replaces JPA @EntityListeners and @CreatedDate
+@Component
+public class MybatisPlusMetaObjectHandler implements MetaObjectHandler {
 
-    @Column(nullable = false, unique = true)
-    private String email;
+    @Override
+    public void insertFill(MetaObject metaObject) {
+        this.strictInsertFill(metaObject, "createdAt", LocalDateTime.class, LocalDateTime.now());
+        this.strictInsertFill(metaObject, "updatedAt", LocalDateTime.class, LocalDateTime.now());
+    }
 
-    @Column(nullable = false)
-    private String name;
-
-    @Column(nullable = false)
-    private String password;
-
-    @CreatedDate
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @LastModifiedDate
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-
-    // Getters and setters
-}
-
-// Enable JPA auditing
-@Configuration
-@EnableJpaAuditing
-public class JpaConfig {
+    @Override
+    public void updateFill(MetaObject metaObject) {
+        this.strictUpdateFill(metaObject, "updatedAt", LocalDateTime.class, LocalDateTime.now());
+    }
 }
 ```
 
 ### Testing Pattern
 
-**Unit Tests:**
+**Unit Tests (Testing ServiceImpl using Mockito):**
 ```java
 @SpringBootTest
-class UserServiceTest {
+class UserServiceImplTest {
 
     @Mock
-    private UserRepository userRepository;
+    private UserMapper userMapper;
 
     @InjectMocks
-    private UserService userService;
+    private UserServiceImpl userService;
 
     @BeforeEach
     void setUp() {
@@ -1169,36 +879,36 @@ class UserServiceTest {
     }
 
     @Test
-    void testFindById_Success() {
+    void testGetById_Success() {
         User user = new User();
         user.setId(1L);
         user.setEmail("test@example.com");
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userMapper.selectById(1L)).thenReturn(user);
 
-        Optional<User> result = userService.findById(1L);
+        User result = userService.getById(1L);
 
-        assertTrue(result.isPresent());
-        assertEquals("test@example.com", result.get().getEmail());
-        verify(userRepository, times(1)).findById(1L);
+        assertNotNull(result);
+        assertEquals("test@example.com", result.getEmail());
+        verify(userMapper, times(1)).selectById(1L);
     }
 
     @Test
-    void testFindById_NotFound() {
-        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+    void testGetById_NotFound() {
+        when(userMapper.selectById(1L)).thenReturn(null);
 
-        Optional<User> result = userService.findById(1L);
+        User result = userService.getById(1L);
 
-        assertFalse(result.isPresent());
+        assertNull(result);
     }
 }
 ```
 
-**Integration Tests:**
+**Integration Tests (MockMvc Adapted for Result Wrapper):**
 ```java
 @SpringBootTest
 @AutoConfigureMockMvc
-@Transactional
+@Transactional(rollbackFor = Exception.class) // Rollback after tests
 class UserControllerIntegrationTest {
 
     @Autowired
@@ -1208,20 +918,22 @@ class UserControllerIntegrationTest {
     private ObjectMapper objectMapper;
 
     @Autowired
-    private UserRepository userRepository;
+    private UserService userService;
 
     @Test
     void testCreateUser_Success() throws Exception {
         User user = new User();
         user.setEmail("test@example.com");
         user.setName("Test User");
+        user.setPassword("password123");
 
         mockMvc.perform(post("/api/users")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(user)))
-            .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.email").value("test@example.com"))
-            .andExpect(jsonPath("$.name").value("Test User"));
+            .andExpect(status().isOk()) // Assuming standard 200 OK for domestic APIs
+            .andExpect(jsonPath("$.code").value(200)) // Checking the Unified Result code
+            .andExpect(jsonPath("$.data.email").value("test@example.com"))
+            .andExpect(jsonPath("$.data.name").value("Test User"));
     }
 
     @Test
@@ -1229,202 +941,189 @@ class UserControllerIntegrationTest {
         User user = new User();
         user.setEmail("test@example.com");
         user.setName("Test User");
-        User saved = userRepository.save(user);
+        user.setPassword("pwd");
+        userService.save(user);
 
-        mockMvc.perform(get("/api/users/" + saved.getId()))
+        mockMvc.perform(get("/api/users/" + user.getId()))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.id").value(saved.getId()))
-            .andExpect(jsonPath("$.email").value("test@example.com"));
+            .andExpect(jsonPath("$.code").value(200))
+            .andExpect(jsonPath("$.data.id").value(user.getId()))
+            .andExpect(jsonPath("$.data.email").value("test@example.com"));
     }
 
     @Test
     void testGetUser_NotFound() throws Exception {
         mockMvc.perform(get("/api/users/999"))
-            .andExpect(status().isNotFound());
+            .andExpect(status().isOk()) // Controller returns 200 OK HTTP status, but 404 business code
+            .andExpect(jsonPath("$.code").value(404));
     }
 }
 ```
-
 ## Best Practices
 
 ### 1. Use Constructor Injection
-
-Constructor injection is the recommended approach for dependency injection.
+Constructor injection is the recommended approach for dependency injection to ensure final immutability and easy testing. In domestic enterprise development, Lombok's `@RequiredArgsConstructor` is the absolute standard.
 
 ```java
-// Good - Constructor injection
+// Good - Constructor injection via Lombok
 @Service
+@RequiredArgsConstructor
 public class UserService {
-    private final UserRepository userRepository;
+    private final UserMapper userMapper;
     private final EmailService emailService;
-
-    public UserService(UserRepository userRepository, EmailService emailService) {
-        this.userRepository = userRepository;
-        this.emailService = emailService;
-    }
 }
 
 // Bad - Field injection
 @Service
 public class UserService {
     @Autowired
-    private UserRepository userRepository;
+    private UserMapper userMapper;
 }
 ```
 
-### 2. Use DTOs for API Requests/Responses
-
-Don't expose entities directly through REST APIs.
+### 2. Use DTOs and VOs for API Requests/Responses
+Don't expose database entities directly through REST APIs. Use DTO (Data Transfer Object) for receiving data and VO (View Object) for returning data, wrapped in a `Result<T>`.
 
 ```java
-// DTO
-public class UserDTO {
-    private Long id;
-    private String email;
-    private String name;
-
-    // No password field exposed
-    // Getters and setters
-}
-
-// Mapper
+// Mapper/Converter (Using Hutool BeanUtil or MapStruct)
 @Component
-public class UserMapper {
-    public UserDTO toDTO(User user) {
-        UserDTO dto = new UserDTO();
-        dto.setId(user.getId());
-        dto.setEmail(user.getEmail());
-        dto.setName(user.getName());
-        return dto;
+public class UserConverter {
+    public UserVO toVO(User user) {
+        return BeanUtil.copyProperties(user, UserVO.class);
     }
 
     public User toEntity(UserDTO dto) {
-        User user = new User();
-        user.setEmail(dto.getEmail());
-        user.setName(dto.getName());
-        return user;
+        return BeanUtil.copyProperties(dto, User.class);
     }
 }
 
 // Controller
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/api/v1/users")
+@RequiredArgsConstructor
 public class UserController {
     private final UserService userService;
-    private final UserMapper userMapper;
+    private final UserConverter userConverter;
 
     @GetMapping("/{id}")
-    public ResponseEntity<UserDTO> getUser(@PathVariable Long id) {
-        return userService.findById(id)
-            .map(userMapper::toDTO)
-            .map(ResponseEntity::ok)
-            .orElse(ResponseEntity.notFound().build());
+    public Result<UserVO> getUser(@PathVariable Long id) {
+        User user = userService.getById(id);
+        if (user == null) {
+            return Result.error(404, "用户不存在");
+        }
+        return Result.success(userConverter.toVO(user));
     }
 }
 ```
 
 ### 3. Use Validation
-
-Always validate input data.
+Always validate input data at the controller boundary using JSR-303 annotations.
 
 ```java
-// Entity with validation
-@Entity
-public class User {
-    @NotBlank(message = "Email is required")
-    @Email(message = "Email should be valid")
+// Entity / DTO with validation
+@Data
+public class UserDTO {
+    @NotBlank(message = "邮箱不能为空")
+    @Email(message = "邮箱格式不正确")
     private String email;
 
-    @NotBlank(message = "Name is required")
-    @Size(min = 2, max = 100, message = "Name must be between 2 and 100 characters")
+    @NotBlank(message = "姓名不能为空")
+    @Size(min = 2, max = 100, message = "姓名长度必须在2到100之间")
     private String name;
 
-    @NotBlank(message = "Password is required")
-    @Size(min = 8, message = "Password must be at least 8 characters")
+    @NotBlank(message = "密码不能为空")
+    @Size(min = 6, message = "密码至少6位")
     private String password;
 }
 
 // Controller
 @PostMapping
-public ResponseEntity<User> createUser(@Valid @RequestBody User user) {
-    // Validation happens automatically
-    return ResponseEntity.ok(userService.save(user));
+public Result<Void> createUser(@Valid @RequestBody UserDTO userDTO) {
+    // Validation happens automatically before entering the method body
+    userService.createUser(userDTO);
+    return Result.success(null);
 }
 ```
 
 ### 4. Use Transactions Properly
-
-Mark service methods with appropriate transaction settings.
+Mark service methods with appropriate transaction settings. In domestic standards, always explicitly rollback for all exceptions using `rollbackFor = Exception.class`.
 
 ```java
 @Service
-@Transactional
-public class OrderService {
+@RequiredArgsConstructor
+public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements OrderService {
 
-    @Transactional(readOnly = true)
-    public List<Order> findAll() {
-        return orderRepository.findAll();
-    }
+    private final InventoryService inventoryService;
+    private final EmailService emailService;
 
-    @Transactional
-    public Order createOrder(Order order) {
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void createOrder(Order order) {
         // Multiple database operations in one transaction
-        Order saved = orderRepository.save(order);
-        inventoryService.decreaseStock(order.getItems());
-        emailService.sendOrderConfirmation(saved);
-        return saved;
+        this.save(order); // MyBatis-Plus generic method
+        inventoryService.decreaseStock(order.getItems()); // If this throws an exception, the order insert rolls back
+        emailService.sendOrderConfirmation(order);
     }
 }
 ```
 
 ### 5. Use Pagination
-
-Always paginate large datasets.
+Always paginate large datasets. Use MyBatis-Plus native `Page` object instead of JPA's `Pageable`.
 
 ```java
 @GetMapping
-public Page<Product> getProducts(
-        @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "20") int size,
+public Result<Page<ProductVO>> getProducts(
+        @RequestParam(defaultValue = "1") int pageNum,
+        @RequestParam(defaultValue = "10") int pageSize,
         @RequestParam(defaultValue = "id") String sortBy) {
-    Pageable pageable = PageRequest.of(page, size, Sort.by(sortBy));
-    return productService.findAll(pageable);
+    
+    // 1. Create MyBatis-Plus Page request
+    Page<Product> pageParam = new Page<>(pageNum, pageSize);
+    
+    // 2. Query Database
+    Page<Product> entityPage = productService.page(pageParam, new QueryWrapper<Product>().orderByDesc(sortBy));
+    
+    // 3. Convert Entity Page to VO Page
+    Page<ProductVO> voPage = new Page<>();
+    BeanUtil.copyProperties(entityPage, voPage, "records");
+    voPage.setRecords(BeanUtil.copyToList(entityPage.getRecords(), ProductVO.class));
+    
+    return Result.success(voPage);
 }
 ```
 
 ### 6. Handle Exceptions Globally
-
-Use `@RestControllerAdvice` for centralized exception handling.
+Use `@RestControllerAdvice` for centralized exception handling to guarantee the `Result.error()` JSON structure is always returned to the frontend.
 
 ```java
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleNotFound(ResourceNotFoundException ex) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-            .body(new ErrorResponse(ex.getMessage()));
+    @ExceptionHandler(BusinessException.class)
+    public Result<Void> handleBusinessException(BusinessException ex) {
+        return Result.error(ex.getCode(), ex.getMessage());
     }
 }
 ```
 
 ### 7. Use Logging
-
-Implement proper logging throughout your application.
+Implement proper logging throughout your application using Lombok's `@Slf4j`. Never use `System.out.println`.
 
 ```java
 @Service
+@Slf4j
+@RequiredArgsConstructor
 public class UserService {
-    private static final Logger logger = LoggerFactory.getLogger(UserService.class);
+    
+    private final UserMapper userMapper;
 
-    public User createUser(User user) {
-        logger.info("Creating user with email: {}", user.getEmail());
+    public void createUser(User user) {
+        log.info("Creating user with email: {}", user.getEmail());
         try {
-            User saved = userRepository.save(user);
-            logger.info("User created successfully with id: {}", saved.getId());
-            return saved;
+            userMapper.insert(user);
+            log.info("User created successfully with id: {}", user.getId());
         } catch (Exception e) {
-            logger.error("Error creating user: {}", e.getMessage(), e);
+            log.error("Error creating user: {}", e.getMessage(), e);
             throw e;
         }
     }
@@ -1432,88 +1131,76 @@ public class UserService {
 ```
 
 ### 8. Secure Your Endpoints
-
-Implement proper authentication and authorization.
+Implement proper authentication and authorization using Spring Security and JWT.
 
 ```java
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
+            .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/public/**").permitAll()
-                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                .requestMatchers("/api/v1/public/**").permitAll()
+                .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )
-            .oauth2ResourceServer().jwt();
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
+        // Note: JWT Filter must be added here via .addFilterBefore()
         return http.build();
     }
 }
 ```
 
 ### 9. Use Database Migrations
-
-Use Flyway or Liquibase for database version control.
+Use Flyway or Liquibase for database version control. Scripts MUST be strictly MySQL compatible.
 
 ```sql
 -- V1__Create_users_table.sql
-CREATE TABLE users (
-    id BIGSERIAL PRIMARY KEY,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    name VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP NOT NULL
-);
+CREATE TABLE sys_user (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
+    email VARCHAR(128) NOT NULL UNIQUE COMMENT '邮箱',
+    name VARCHAR(64) NOT NULL COMMENT '姓名',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户系统表';
 
 -- V2__Add_password_column.sql
-ALTER TABLE users ADD COLUMN password VARCHAR(255);
+ALTER TABLE sys_user ADD COLUMN password VARCHAR(128) NOT NULL COMMENT '密码' AFTER name;
 ```
 
 ### 10. Monitor Your Application
-
 Use Spring Boot Actuator for monitoring.
 
-```properties
-# application.properties
-management.endpoints.web.exposure.include=health,info,metrics
-management.endpoint.health.show-details=always
+```yaml
+# application.yml
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
 ```
-
-## Examples
-
-See EXAMPLES.md for detailed code examples including:
-- Basic Spring Boot Application
-- REST API with CRUD Operations
-- Database Integration with JPA
-- Custom Queries and Specifications
-- Request Validation
-- Exception Handling
-- Authentication with JWT
-- Role-Based Authorization
-- File Upload/Download
-- Caching with Redis
-- Async Processing
-- Scheduled Tasks
-- Multiple Database Configuration
-- Actuator and Monitoring
-- Docker Deployment
 
 ## Summary
 
 This Spring Boot development skill covers:
 
 1. **Auto-Configuration**: Automatic configuration based on dependencies
-2. **Dependency Injection**: IoC container, constructor injection, component stereotypes
-3. **REST APIs**: Controllers, request mapping, response handling
-4. **Spring Data JPA**: Entities, repositories, relationships, queries
+2. **Dependency Injection**: IoC container, constructor injection via Lombok `@RequiredArgsConstructor`
+3. **REST APIs**: Controllers, request mapping, completely unified `Result<T>` response handling
+4. **Data Access (Domestic Standard)**: MyBatis-Plus entities, mappers, and `IService` pattern with MySQL
 5. **Configuration**: Properties, YAML, profiles, custom properties
-6. **Security**: Authentication, authorization, JWT, role-based access
-7. **Exception Handling**: Global exception handling, custom exceptions
-8. **Testing**: Unit tests, integration tests, MockMvc
-9. **Best Practices**: DTOs, validation, transactions, pagination, logging
-10. **Production Ready**: Actuator, monitoring, database migrations, deployment
+6. **Security**: Complete JWT Authentication, authorization, role-based access
+7. **Exception Handling**: Global exception handling mapped to standard JSON `Result.error()`
+8. **Testing**: Unit tests, integration tests, MockMvc adapted for Result wrappers
+9. **Best Practices**: 10 enterprise rules including DTOs, Validation, Transactions (`rollbackFor`), Pagination, Logging
+10. **Production Ready**: Actuator, monitoring, MySQL migrations, deployment
 
-The patterns and examples are based on official Spring Boot documentation (Trust Score: 7.5) and represent modern enterprise Java development practices.
+The patterns and examples are heavily adapted to represent the absolute highest standard of modern domestic enterprise Java development practices.

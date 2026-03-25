@@ -5,7 +5,7 @@
 	logallrefupdates = true
 	symlinks = false
 	ignorecase = true
-	sparseCheckout = true
+	sparseCheckout = false
 [remote "origin"]
 	url = https://github.com/anthropics/skills
 	fetch = +refs/heads/*:refs/remotes/origin/*
