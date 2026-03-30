@@ -26,16 +26,13 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.web.client.RestTemplate;
 
+// ⚠️ 微服务场景下，服务间调用推荐使用 OpenFeign，而非 RestTemplate
+// 如需外站调用才使用 RestTemplate
 @SpringBootApplication
 public class DemoApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(DemoApplication.class, args);
-    }
-
-    @Bean
-    public RestTemplate restTemplate() {
-        return new RestTemplate();
     }
 }
 ```
@@ -464,6 +461,11 @@ public class JwtTokenProvider {
     @Value("${app.security.jwtExpirationMs}")
     private long jwtExpirationMs;
 
+    // 构建签名 Key（JJWT 0.11+ 需要 SecretKey 对象，不再接受原始字符串）
+    private SecretKey key() {
+        return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+    }
+
     public String generateToken(UserDetails userDetails) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
@@ -472,13 +474,14 @@ public class JwtTokenProvider {
             .setSubject(userDetails.getUsername())
             .setIssuedAt(now)
             .setExpiration(expiryDate)
-            .signWith(SignatureAlgorithm.HS512, jwtSecret)
+            .signWith(key())   // JJWT 0.11+ 直接传 SecretKey，不需指定算法
             .compact();
     }
 
     public String getUsernameFromToken(String token) {
-        return Jwts.parser()
-            .setSigningKey(jwtSecret)
+        return Jwts.parserBuilder()   // JJWT 0.11+ 使用 parserBuilder()
+            .setSigningKey(key())
+            .build()
             .parseClaimsJws(token)
             .getBody()
             .getSubject();
@@ -486,9 +489,10 @@ public class JwtTokenProvider {
 
     public boolean validateToken(String token) {
         try {
-            Jwts.parser().setSigningKey(jwtSecret).parseClaimsJws(token);
+            Jwts.parserBuilder().setSigningKey(key()).build().parseClaimsJws(token);
             return true;
         } catch (JwtException | IllegalArgumentException e) {
+            // JwtException 是所有 JWT 相关异常的父类（JJWT 0.11+）
             return false;
         }
     }
@@ -587,8 +591,11 @@ public class FileController {
 
     private final FileStorageService fileStorageService;
 
-    /**
-     * Upload File (Returns Result<String> containing file URL)
+/**
+     * 上传文件（返回文件 URL）
+     * ⚠️ 重要：以下示例使用本地文件系统仅供演示。
+     * 生产环境禁止存到本地磁盘！必须使用对象存储（MinIO / 阿里云 OSS 等）。
+     * 请参考 file-storage skill 获取生产级实现。
      */
     @PostMapping("/upload")
     public Result<String> uploadFile(@RequestParam("file") MultipartFile file) {
@@ -759,18 +766,32 @@ public class ScheduledTasks {
     private final OrderMapper orderMapper;
 
     /**
-     * Execute using Cron expression (e.g., Every day at 2:00 AM)
-     * Useful for daily data synchronization or cleanup.
+ * ⚠️ 重要警告：@Scheduled 在单机环境可用。
+ * 微服务多实例部署时，每个实例都会独立触发定时任务，导致重复执行！
+ * 微服务场景下必须使用分布式调度框架（如 XXL-Job）代替 @Scheduled。
+ * 参考 xxl-job skill 获取完整接入规范。
+ */
+@Service
+@EnableScheduling
+@RequiredArgsConstructor
+@Slf4j
+public class ScheduledTasks {
+
+    private final OrderMapper orderMapper;
+
+    /**
+     * 仅适用于单机部署！多实例场景请改用 XXL-Job
+     * Cron 表达式：每天凌晨 2点执行
      */
     @Scheduled(cron = "0 0 2 * * ?")
     public void dailyCleanupTask() {
         log.info("Starting daily cleanup task at 2 AM...");
         
-        // Clean up unpaid orders older than 24 hours
+        // 清理 24 小时前未支付订单
         LocalDateTime cutoffDate = LocalDateTime.now().minusHours(24);
         int deletedCount = orderMapper.delete(
             new LambdaQueryWrapper<Order>()
-                .eq(Order::getStatus, 0) // 0 = Unpaid
+                .eq(Order::getStatus, 0) // 0 = 未支付
                 .le(Order::getCreatedAt, cutoffDate)
         );
         
@@ -778,7 +799,7 @@ public class ScheduledTasks {
     }
 
     /**
-     * Execute at a fixed delay (Wait 5 seconds after the previous task finishes)
+     * 仅适用于单机部署！上一次任务完成后 5 秒再执行
      */
     @Scheduled(fixedDelay = 5000)
     public void heartbeatTask() {

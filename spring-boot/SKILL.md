@@ -504,6 +504,11 @@ public class JwtTokenProvider {
     @Value("${app.security.jwtExpiration}")
     private int jwtExpirationMs;
 
+    // 构建签名 Key（JJWT 0.11+ 需要使用 SecretKey 对象，而非原始字符串）
+    private SecretKey key() {
+        return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+    }
+
     public String generateToken(Authentication authentication) {
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
         Date now = new Date();
@@ -513,13 +518,14 @@ public class JwtTokenProvider {
             .setSubject(userDetails.getUsername())
             .setIssuedAt(now)
             .setExpiration(expiryDate)
-            .signWith(SignatureAlgorithm.HS512, jwtSecret)
+            .signWith(key())   // JJWT 0.11+ 直接传 SecretKey，不再需要指定 SignatureAlgorithm
             .compact();
     }
 
     public String getUsernameFromJWT(String token) {
-        Claims claims = Jwts.parser()
-            .setSigningKey(jwtSecret)
+        Claims claims = Jwts.parserBuilder()   // JJWT 0.11+ 改为 parserBuilder()
+            .setSigningKey(key())
+            .build()
             .parseClaimsJws(token)
             .getBody();
         return claims.getSubject();
@@ -527,10 +533,10 @@ public class JwtTokenProvider {
 
     public boolean validateToken(String authToken) {
         try {
-            Jwts.parser().setSigningKey(jwtSecret).parseClaimsJws(authToken);
+            Jwts.parserBuilder().setSigningKey(key()).build().parseClaimsJws(authToken);
             return true;
-        } catch (SignatureException | MalformedJwtException | ExpiredJwtException |
-                 UnsupportedJwtException | IllegalArgumentException ex) {
+        } catch (JwtException | IllegalArgumentException ex) {
+            // JwtException 是 ExpiredJwtException / MalformedJwtException 等的父类（JJWT 0.11+）
             return false;
         }
     }
@@ -864,7 +870,9 @@ public class MybatisPlusMetaObjectHandler implements MetaObjectHandler {
 
 **Unit Tests (Testing ServiceImpl using Mockito):**
 ```java
-@SpringBootTest
+// ✅ 单元测试使用 @ExtendWith(MockitoExtension.class)，不启动 Spring 容器（更快）
+// ❌ 单元测试不要用 @SpringBootTest（会启动整个容器，与 @Mock/@InjectMocks 冲突）
+@ExtendWith(MockitoExtension.class)
 class UserServiceImplTest {
 
     @Mock

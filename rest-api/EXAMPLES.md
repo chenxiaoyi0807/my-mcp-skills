@@ -125,12 +125,12 @@ public class UserController {
 
     @DeleteMapping("/{id}")
     public Result<Void> deleteUser(@PathVariable Long id) {
-        // Relies on MyBatis-Plus @TableLogic for logical deletion
+        // 依赖 MyBatis-Plus @TableLogic 实现逻辑删除
         boolean success = userService.removeById(id);
         if (!success) {
-            return Result.error(404, "用户不存在或已被删除");
+            throw new BusinessException(404, "用户不存在或已被删除");
         }
-        return Result.success(null, "删除成功");
+        return Result.ok(null);
     }
 }
 ```
@@ -354,10 +354,16 @@ public Result<Page<ProductVO>> searchProducts(
     // 4. IN Clause (Array filter)
     wrapper.in(CollUtil.isNotEmpty(tags), Product::getTag, tags);
 
-    // 5. Dynamic Sorting
+    // 5. 动态排序（邇白名单防止 SQL 注入）
     boolean isAsc = "asc".equalsIgnoreCase(sortOrder);
-    // Note: In production, validate 'sortBy' against a whitelist to prevent SQL Injection
-    wrapper.orderBy(true, isAsc, getSFunctionByString(sortBy));
+    // 安全排序字段映射（务必通过白名单！禁止直接将前端回调写入 SQL）
+    Map<String, SFunction<Product, ?>> sortFieldMap = Map.of(
+        "createdAt", Product::getCreatedAt,
+        "price",     Product::getPrice,
+        "name",      Product::getName
+    );
+    SFunction<Product, ?> sortFunc = sortFieldMap.getOrDefault(sortBy, Product::getCreatedAt);
+    wrapper.orderBy(true, isAsc, sortFunc);
 
     // 6. Execute Paginated Query
     Page<Product> page = productService.page(new Page<>(pageNum, pageSize), wrapper);
